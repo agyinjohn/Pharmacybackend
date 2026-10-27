@@ -152,7 +152,7 @@ router.post('/:slug/auth/verify', loadOrg, wrap(async (req, res) => {
 
 /* ---- Checkout ---- */
 router.post('/:slug/orders', loadOrg, customer, wrap(async (req, res) => {
-  if (String(req.customer.org) !== String(req.orgId)) throw new HttpError(403, 'Account belongs to another pharmacy');
+  if (String(req.customer.org) !== String(req.org._id)) throw new HttpError(403, 'Account belongs to another pharmacy');
   const { branch: branchId, items, fulfilment = 'delivery', address, payment, prescriptionImage, refillOf, note } = req.body;
   if (!items?.length) throw bad('Your cart is empty');
   const b = await Branch.findOne({ _id: branchId, org: req.orgId });

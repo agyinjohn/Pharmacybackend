@@ -17,6 +17,12 @@ const loadOrder = async (req) => {
 };
 const step = (o, status, req, note) => { o.status = status; o.history.push({ status, by: req.user.name, note }); };
 
+router.get('/riders', roles(...ORDER_STAFF), wrap(async (req, res) => {
+  const f = { org: req.orgId, role: 'dispatcher', active: true };
+  if (req.user.role !== 'owner') f.branches = { $in: req.user.branches };
+  res.json(await User.find(f, 'name phone'));
+}));
+
 router.get('/orders/alerts', branch(), wrap(async (req, res) => {
   const [review, received, ready, out] = await Promise.all(['pending_review', 'received', 'packed', 'out_for_delivery']
     .map((s) => Order.countDocuments({ org: req.orgId, branch: req.branchId, status: s })));
