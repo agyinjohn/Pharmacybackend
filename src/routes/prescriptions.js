@@ -130,7 +130,7 @@ router.get('/controlled-register', branch(), roles('pharmacist', 'branch_manager
   const f = { org: req.orgId, branch: req.branchId };
   if (req.query.product) f.product = req.query.product;
   const rows = await ControlledRegister.find(f).sort({ createdAt: 1, _id: 1 }).limit(2000);
-  if (req.query.format === 'csv') {
+  if (['csv', 'xlsx'].includes(req.query.format)) {
     return sendRows(req, res, 'controlled-register', rows.map((r) => ({ date: r.date, drug: r.productName, type: r.type, qty: r.qty, balance: r.balance, counterparty: r.counterparty, patient: r.patient, prescriber: r.prescriber, rx: r.rxNo, batch: r.batchNo, pharmacist: r.pharmacistName, witness: r.witness, note: r.note })));
   }
   await audit(req, 'register.view', 'ControlledRegister', null, 'Viewed controlled-drug register');

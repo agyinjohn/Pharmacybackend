@@ -1,10 +1,10 @@
 const router = require('express').Router();
-const { Order, Prescription, Sale, Branch, User } = require('../models');
+const { Order, Prescription, Sale, Branch, User, Product } = require('../models');
 const { wrap, bad, notFound, conflict, forbidden, round2, seq } = require('../utils/http');
 const { staff, roles, branch, writable } = require('../middleware/auth');
 const { audit } = require('../services/audit');
 const { notify } = require('../services/notify');
-const { deductFefo, restore } = require('../services/stock');
+const { deductFefo, restore, priceFor, available } = require('../services/stock');
 const { claimRx, unclaimRx, refreshRxStatus } = require('../services/sales');
 const payments = require('../services/payments');
 
@@ -111,6 +111,56 @@ router.post('/orders/:id/message', roles('pharmacist'), writable, wrap(async (re
   await o.save();
   await notify(o.customer, `Pharmacist on order ${o.orderNo}: ${req.body.text}`);
   await audit(req, 'order.message', 'Order', o._id, `Messaged customer about ${o.orderNo}`);
+  res.json(o);
+}));
+
+// Pharmacist changes quantities, removes items or substitutes products before approval (CP-ORD-03).
+// lines: the complete new item list [{ product, qty, substituteFor? }]. The customer is notified.
+router.post('/orders/:id/edit', roles('pharmacist', 'branch_manager'), writable, wrap(async (req, res) => {
+  const o = await loadOrder(req);
+  if (!['received', 'pending_review'].includes(o.status)) throw conflict('Orders can only be changed before approval');
+  if (o.stockReserved) throw conflict('Stock is already held for this order; cancel and ask the customer to re-order');
+  const reason = (req.body.reason || '').trim();
+  if (!reason) throw bad('Say why the order is being changed; the customer will see it');
+  const lines = (req.body.lines || []).map((l) => ({ ...l, qty: Number(l.qty) })).filter((l) => l.qty > 0);
+  if (!lines.length) throw bad('An order needs at least one item; reject it instead');
+  const prods = await Product.find({ _id: { $in: lines.map((l) => l.product) }, org: req.orgId, active: true });
+  const items = [];
+  for (const l of lines) {
+    const p = prods.find((x) => String(x._id) === String(l.product));
+    if (!p || !Number.isInteger(l.qty)) throw bad('Invalid item');
+    if (p.legalStatus === 'controlled') throw conflict(`${p.brand} cannot be supplied online`);
+    const have = await available(req.orgId, o.branch, p._id);
+    if (have < l.qty) throw conflict(`${p.brand}: only ${have} in stock at this branch`);
+    items.push({ product: p._id, name: `${p.brand}${p.strength ? ' ' + p.strength : ''}`, qty: l.qty, unitPrice: priceFor(p, o.branch), taxRate: p.taxRate, requiresRx: p.legalStatus === 'prescription_only' });
+  }
+  const rxItems = items.filter((i) => i.requiresRx);
+  let rx = o.prescription ? await Prescription.findById(o.prescription) : null;
+  if (rxItems.length && !rx) throw conflict('A prescription is needed for prescription-only items; ask the customer to upload one');
+  if (rx) {
+    const same = (a, b) => a.length === b.length && a.every((x) => b.some((y) => String(y.product) === String(x.product) && y.qty === x.qty));
+    if (!['pending'].includes(rx.status) && !same(rxItems, rx.items.map((i) => ({ product: i.product, qty: i.qty })))) {
+      throw conflict('Prescription items can only be changed before the prescription is verified');
+    }
+    if (rx.status === 'pending') { rx.items = rxItems.map((i) => ({ product: i.product, name: i.name, qty: i.qty })); await rx.save(); }
+  }
+  const describe = (list) => list.map((i) => `${i.qty} x ${i.name}`).join(', ');
+  const before = describe(o.items);
+  const subtotal = round2(items.reduce((s, i) => s + i.unitPrice * i.qty, 0));
+  const tax = round2(items.reduce((s, i) => s + i.unitPrice * i.qty * (i.taxRate || 0), 0));
+  const total = round2(subtotal + tax + (o.deliveryFee || 0));
+  if (o.payment.status === 'paid' && total > o.total + 0.001) throw conflict('The new total is higher than what the customer paid; message them to place an extra order instead');
+  const refundDue = o.payment.status === 'paid' ? round2(o.total - total) : 0;
+  if (refundDue > 0 && o.payment.provider === 'paystack') {
+    try { await payments.refund(o.payment.reference, refundDue); } catch (e) { o.history.push({ status: o.status, by: 'system', note: `Partial refund of ${refundDue} failed (${e.message}); refund manually` }); }
+  }
+  o.items = items; o.subtotal = subtotal; o.tax = tax; o.total = total;
+  if (refundDue > 0) o.payment.refundedAmount = round2((o.payment.refundedAmount || 0) + refundDue);
+  if (o.status === 'pending_review' && !rxItems.length) o.status = 'received';
+  o.history.push({ status: o.status, by: req.user.name, note: `Changed: ${reason}. Was ${before}; now ${describe(items)}${refundDue > 0 ? `. Refund ${refundDue}` : ''}` });
+  await o.save();
+  await notify(o.customer, `Your order ${o.orderNo} was changed by the pharmacist: ${reason}. New items: ${describe(items)}. New total GHS ${total.toFixed(2)}${refundDue > 0 ? `; GHS ${refundDue.toFixed(2)} will be refunded` : ''}. Reply or cancel in My orders if you do not agree.`);
+  await audit(req, 'order.edit', 'Order', o._id, `Order ${o.orderNo} changed: ${reason}`, { before: { items: before }, after: { items: describe(items), total } });
   res.json(o);
 }));
 

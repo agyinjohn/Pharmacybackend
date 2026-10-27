@@ -221,7 +221,7 @@ router.get('/audit', roles('branch_manager', 'auditor'), wrap(async (req, res) =
   if (req.query.user) f.user = req.query.user;
   const rows = await AuditLog.find(f).populate('branch', 'name').sort('-createdAt').limit(Math.min(Number(req.query.limit) || 100, 500));
   await audit(req, 'audit.view', 'AuditLog', null, 'Viewed audit log');
-  sendRows(req, res, 'audit-log', req.query.format === 'csv' ? rows.map((r) => ({ at: r.createdAt, user: r.userName, branch: r.branch?.name, action: r.action, summary: r.summary })) : rows);
+  sendRows(req, res, 'audit-log', ['csv', 'xlsx'].includes(req.query.format) ? rows.map((r) => ({ at: r.createdAt, user: r.userName, branch: r.branch?.name, action: r.action, summary: r.summary })) : rows);
 }));
 
 module.exports = router;

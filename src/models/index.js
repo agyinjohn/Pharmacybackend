@@ -312,7 +312,7 @@ const Order = mongoose.model('Order', new Schema({
   subtotal: Number,
   tax: Number,
   total: Number,
-  payment: { method: { type: String, enum: ['momo', 'card', 'cod'] }, status: { type: String, enum: ['pending', 'paid', 'refunded'], default: 'pending' }, reference: String, provider: String, authUrl: String },
+  payment: { method: { type: String, enum: ['momo', 'card', 'cod'] }, status: { type: String, enum: ['pending', 'paid', 'refunded'], default: 'pending' }, reference: String, provider: String, authUrl: String, refundedAmount: Number },
   status: { type: String, enum: ['pending_review', 'received', 'approved', 'packed', 'out_for_delivery', 'delivered', 'failed', 'cancelled', 'rejected'], default: 'received' },
   stockReserved: { type: Boolean, default: false },
   rxClaimed: { type: Boolean, default: false },
@@ -359,6 +359,20 @@ const Ledger = mongoose.model('Ledger', new Schema({
   by: ref('User'),
 }, { timestamps: { createdAt: true, updatedAt: false } }));
 
+// One record per data import run: the data migration report (NFR-12, deliverable 10.2).
+const ImportLog = mongoose.model('ImportLog', new Schema({
+  org: ref('Organization', { required: true, index: true }),
+  type: String,
+  fileName: String,
+  by: ref('User'),
+  byName: String,
+  total: Number,
+  created: Number,
+  updated: Number,
+  skipped: Number,
+  rowErrors: [{ row: Number, error: String }],
+}, { timestamps: { createdAt: true, updatedAt: false } }));
+
 /* ---------- Audit and leads ---------- */
 const auditSchema = new Schema({
   org: ref('Organization', { index: true }),
@@ -389,5 +403,5 @@ const Lead = mongoose.model('Lead', new Schema({
 module.exports = {
   ROLES, LEGAL,
   Organization, Branch, User, Product, Batch, Supplier, PurchaseOrder, StockTransfer,
-  Customer, Prescription, ControlledRegister, Shift, Sale, Order, AuditLog, Lead, SupplierReturn, Notification, Ledger,
+  Customer, Prescription, ControlledRegister, Shift, Sale, Order, AuditLog, Lead, SupplierReturn, Notification, Ledger, ImportLog,
 };
