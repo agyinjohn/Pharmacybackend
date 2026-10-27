@@ -153,7 +153,7 @@ router.post('/orders/:id/edit', roles('pharmacist', 'branch_manager'), writable,
   const priced = priceBasket(items.map((i) => ({ p: prods.find((x) => String(x._id) === String(i.product)), qty: i.qty, unitPrice: i.unitPrice })), { promos: await Promotion.find({ org: req.orgId, active: true }), channel: 'online', branch: o.branch });
   priced.lines.forEach((l, k) => { items[k].promoDiscount = l.promoDiscount; items[k].promoName = l.promoName; });
   const { subtotal, tax } = priced;
-  const total = round2(priced.total + (o.deliveryFee || 0));
+  const total = round2(priced.total); // the delivery fee is agreed by phone and kept separate from the goods total
   if (o.payment.status === 'paid' && total > o.total + 0.001) throw conflict('The new total is higher than what the customer paid; message them to place an extra order instead');
   const refundDue = o.payment.status === 'paid' ? round2(o.total - total) : 0;
   if (refundDue > 0 && o.payment.provider === 'paystack') {
@@ -208,6 +208,23 @@ router.post('/orders/:id/dispatch', roles('dispatcher', 'branch_manager', 'pharm
   await o.save();
   await notify(o.customer, `Order ${o.orderNo} is out for delivery with ${o.rider.name}. Give code ${o.deliveryCode} on arrival.`);
   await audit(req, 'order.dispatch', 'Order', o._id, `Order ${o.orderNo} dispatched with ${o.rider.name}`);
+  res.json(o);
+}));
+
+// The delivery fee is agreed with the customer by phone; staff record it here. It is kept apart from the
+// goods total (which may already be paid online) and is paid on delivery.
+router.post('/orders/:id/delivery-fee', roles('pharmacist', 'technician', 'branch_manager', 'dispatcher', 'cashier'), writable, wrap(async (req, res) => {
+  const o = await loadOrder(req);
+  if (o.fulfilment !== 'delivery') throw conflict('Only delivery orders have a delivery fee');
+  if (['delivered', 'cancelled', 'rejected', 'failed'].includes(o.status)) throw conflict(`Order is ${o.status}`);
+  const fee = Number(req.body.fee);
+  if (!Number.isFinite(fee) || fee < 0 || fee > 5000) throw bad('Enter a delivery fee between 0 and 5000');
+  const before = o.deliveryFee || 0;
+  o.deliveryFee = round2(fee);
+  o.history.push({ status: o.status, by: req.user.name, note: `Delivery fee set to ${o.deliveryFee.toFixed(2)}${before ? ` (was ${before.toFixed(2)})` : ''}` });
+  await o.save();
+  await notify(o.customer, `Delivery fee for order ${o.orderNo}: GHS ${o.deliveryFee.toFixed(2)}, paid on delivery.`);
+  await audit(req, 'order.delivery_fee', 'Order', o._id, `Order ${o.orderNo} delivery fee ${before.toFixed(2)} -> ${o.deliveryFee.toFixed(2)}`);
   res.json(o);
 }));
 

@@ -86,6 +86,8 @@ const login = async (email) => { const d = ok(await call('/auth/login', { body: 
   const otc = (await call(`/portal/${slug}/products?branch=${branchObj._id}&q=ORS`)).data[0];
   const order = await step('place OTC order', async () => ok(await call(`/portal/${slug}/orders`, { token: cust.token, body: { branch: branchObj._id, items: [{ product: otc._id, qty: 2 }], fulfilment: 'delivery', address: { line: 'Test street' }, payment: { method: 'momo' } } }), 201));
   await step('Rx order without prescription refused', async () => { const rxp = (await call(`/portal/${slug}/products?branch=${branchObj._id}&q=Amoxil`)).data[0]; ok(await call(`/portal/${slug}/orders`, { token: cust.token, body: { branch: branchObj._id, items: [{ product: rxp._id, qty: 1 }], fulfilment: 'pickup', payment: { method: 'card' } } }), 400); });
+  await step('record agreed delivery fee', async () => { const o = ok(await call(`/orders/${order._id}/delivery-fee`, { token: pharm.token, branch: acc, body: { fee: 15 } })); if (o.deliveryFee !== 15 || o.total !== order.total) throw new Error(`fee ${o.deliveryFee}, total ${o.total} vs ${order.total}`); });
+  await step('negative delivery fee refused', async () => { ok(await call(`/orders/${order._id}/delivery-fee`, { token: pharm.token, branch: acc, body: { fee: -1 } }), 400); });
   await step('cannot pack before approval', async () => { ok(await call(`/orders/${order._id}/pack`, { token: pharm.token, branch: acc, body: {} }), 409); });
   await step('approve order', async () => ok(await call(`/orders/${order._id}/approve`, { token: pharm.token, branch: acc, body: {} })));
   await step('pack order', async () => ok(await call(`/orders/${order._id}/pack`, { token: pharm.token, branch: acc, body: {} })));

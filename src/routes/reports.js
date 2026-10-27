@@ -173,7 +173,7 @@ router.get('/reports/orders', roles('branch_manager', 'accountant', 'auditor', '
   const at = (o, s) => o.history.find((h) => h.status === s)?.at;
   const mins = (a, b) => (a && b ? Math.round((new Date(b) - new Date(a)) / 60000) : '');
   sendRows(req, res, 'order-performance', orders.map((o) => ({
-    order: o.orderNo, branch: o.branch?.name, status: o.status, total: o.total, placed: o.createdAt,
+    order: o.orderNo, branch: o.branch?.name, status: o.status, total: o.total, delivery_fee: o.deliveryFee || 0, placed: o.createdAt,
     mins_to_dispatch: mins(o.createdAt, at(o, 'out_for_delivery')), mins_to_deliver: mins(o.createdAt, at(o, 'delivered')), failed: o.status === 'failed' ? 'yes' : '',
   })));
 }));
