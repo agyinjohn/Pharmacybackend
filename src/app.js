@@ -20,7 +20,7 @@ app.use('/api/portal', require('./routes/portal'));
 // Everything below is staff-only; authenticate once for the whole group.
 const staffApi = express.Router();
 staffApi.use(staff);
-['org', 'catalogue', 'inventory', 'sales', 'prescriptions', 'orders', 'reports', 'extras', 'imports'].forEach((r) => staffApi.use(require(`./routes/${r}`)));
+['org', 'catalogue', 'inventory', 'sales', 'prescriptions', 'orders', 'reports', 'extras', 'imports', 'dataprotection'].forEach((r) => staffApi.use(require(`./routes/${r}`)));
 app.use('/api', staffApi);
 
 app.use((req, res) => res.status(404).json({ error: 'Not found' }));

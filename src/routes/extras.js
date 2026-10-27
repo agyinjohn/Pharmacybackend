@@ -128,17 +128,10 @@ router.get('/privacy/erasure-requests', roles('branch_manager'), wrap(async (req
 router.post('/privacy/erasure/:customerId', roles('branch_manager'), writable, wrap(async (req, res) => {
   const c = await Customer.findOne({ _id: req.params.customerId, org: req.orgId });
   if (!c) throw notFound();
-  const { Organization, Order } = require('../models');
-  const years = (await Organization.findById(req.orgId)).settings.retentionYears || 2;
-  const cutoff = new Date(Date.now() - years * 365 * 86400000);
-  const retained = await Prescription.countDocuments({ org: req.orgId, customer: c._id, hasControlled: true, createdAt: { $gte: cutoff } });
-  if (retained) throw conflict(`${retained} controlled-drug prescription(s) must be kept for ${years} years. Personal details on them are retained; the customer account can be anonymised after that.`);
-  const active = await Order.countDocuments({ customer: c._id, status: { $in: ['pending_review', 'received', 'approved', 'packed', 'out_for_delivery'] } });
-  if (active) throw conflict('Customer has open orders');
+  const { Organization } = require('../models');
+  const { anonymizeCustomer } = require('../services/privacy');
   const before = { name: c.name };
-  c.name = 'Erased customer'; c.phone = `erased-${c._id}`; c.email = undefined; c.addresses = []; c.allergies = []; c.conditions = [];
-  c.consent = { communications: false, healthData: false, at: new Date() }; c.anonymizedAt = new Date(); c.otp = undefined;
-  await c.save();
+  await anonymizeCustomer(c, (await Organization.findById(req.orgId)).settings.retentionYears);
   await audit(req, 'privacy.erase', 'Customer', c._id, 'Customer personal data anonymised on request', { before });
   res.json({ ok: true });
 }));

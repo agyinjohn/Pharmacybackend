@@ -25,6 +25,15 @@ const Organization = mongoose.model('Organization', new Schema({
     shareStockAcrossBranches: { type: Boolean, default: true },
     requireTwoStep: { type: Boolean, default: false },
     retentionYears: { type: Number, default: 2 },
+    // Per-record retention (REG-16). Sales, audit logs, the controlled-drug register and the account
+    // ledger are never purged by the system: they are legal and financial records.
+    retention: {
+      notificationsYears: { type: Number, default: 1 },
+      prescriptionImagesYears: { type: Number, default: 2 },
+      inactiveCustomerYears: { type: Number, default: 6 },
+    },
+    // Where data is hosted and processed (REG-20).
+    hosting: { country: { type: String, default: '' }, provider: { type: String, default: '' }, safeguards: { type: String, default: '' } },
   },
 }, opts));
 
@@ -373,6 +382,37 @@ const ImportLog = mongoose.model('ImportLog', new Schema({
   rowErrors: [{ row: Number, error: String }],
 }, { timestamps: { createdAt: true, updatedAt: false } }));
 
+// Record of processing activities for the Data Protection Commission (REG-15).
+const ProcessingActivity = mongoose.model('ProcessingActivity', new Schema({
+  org: ref('Organization', { required: true, index: true }),
+  name: { type: String, required: true },
+  purpose: String,
+  dataSubjects: String,
+  dataCategories: String,
+  lawfulBasis: String,
+  recipients: String,          // processors and other recipients, e.g. SMS gateway, payment provider
+  processorAgreement: String,  // reference to the written agreement with each processor (REG-18)
+  retention: String,
+  transfersOutsideGhana: String,
+  safeguards: String,
+}, opts));
+
+// Security incident log and response record (REG-18).
+const SecurityIncident = mongoose.model('SecurityIncident', new Schema({
+  org: ref('Organization', { required: true, index: true }),
+  title: { type: String, required: true },
+  discoveredAt: { type: Date, default: Date.now },
+  description: String,
+  dataAffected: String,
+  peopleAffected: Number,
+  severity: { type: String, enum: ['low', 'medium', 'high'], default: 'medium' },
+  status: { type: String, enum: ['open', 'contained', 'closed'], default: 'open' },
+  commissionNotifiedAt: Date,
+  subjectsNotifiedAt: Date,
+  reportedBy: ref('User'),
+  actions: [{ at: { type: Date, default: Date.now }, by: String, text: String }],
+}, opts));
+
 /* ---------- Audit and leads ---------- */
 const auditSchema = new Schema({
   org: ref('Organization', { index: true }),
@@ -403,5 +443,5 @@ const Lead = mongoose.model('Lead', new Schema({
 module.exports = {
   ROLES, LEGAL,
   Organization, Branch, User, Product, Batch, Supplier, PurchaseOrder, StockTransfer,
-  Customer, Prescription, ControlledRegister, Shift, Sale, Order, AuditLog, Lead, SupplierReturn, Notification, Ledger, ImportLog,
+  Customer, Prescription, ControlledRegister, Shift, Sale, Order, AuditLog, Lead, SupplierReturn, Notification, Ledger, ImportLog, ProcessingActivity, SecurityIncident,
 };
