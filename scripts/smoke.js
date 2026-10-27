@@ -84,7 +84,7 @@ const login = async (email) => { const d = ok(await call('/auth/login', { body: 
   const cust = await step('verify otp', async () => ok(await call(`/portal/${slug}/auth/verify`, { body: { phone, code: otp.demoCode, consent: { communications: true, healthData: true } } })));
   const branchObj = (await call(`/portal/${slug}`)).data.branches.find((b) => b.name === 'Accra Central');
   const otc = (await call(`/portal/${slug}/products?branch=${branchObj._id}&q=ORS`)).data[0];
-  const order = await step('place OTC order', async () => ok(await call(`/portal/${slug}/orders`, { token: cust.token, body: { branch: branchObj._id, items: [{ product: otc._id, qty: 2 }], fulfilment: 'delivery', address: { line: 'Test street', zone: branchObj.deliveryZones[0].name }, payment: { method: 'momo' } } }), 201));
+  const order = await step('place OTC order', async () => ok(await call(`/portal/${slug}/orders`, { token: cust.token, body: { branch: branchObj._id, items: [{ product: otc._id, qty: 2 }], fulfilment: 'delivery', address: { line: 'Test street' }, payment: { method: 'momo' } } }), 201));
   await step('Rx order without prescription refused', async () => { const rxp = (await call(`/portal/${slug}/products?branch=${branchObj._id}&q=Amoxil`)).data[0]; ok(await call(`/portal/${slug}/orders`, { token: cust.token, body: { branch: branchObj._id, items: [{ product: rxp._id, qty: 1 }], fulfilment: 'pickup', payment: { method: 'card' } } }), 400); });
   await step('cannot pack before approval', async () => { ok(await call(`/orders/${order._id}/pack`, { token: pharm.token, branch: acc, body: {} }), 409); });
   await step('approve order', async () => ok(await call(`/orders/${order._id}/approve`, { token: pharm.token, branch: acc, body: {} })));

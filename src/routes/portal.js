@@ -233,11 +233,11 @@ router.post('/:slug/orders', loadOrg, customer, wrap(async (req, res) => {
     }
   }
 
-  let deliveryFee = 0; let etaMins; let addr;
+  // The delivery fee is agreed with the customer by phone, so the store charges for the goods only.
+  const deliveryFee = 0; const etaMins = undefined; let addr;
   if (fulfilment === 'delivery') {
-    const zone = b.deliveryZones.find((z) => z.name === address?.zone);
-    if (!address?.line || !zone) throw bad('Choose a delivery address and zone');
-    deliveryFee = zone.fee; etaMins = zone.etaMins; addr = { line: address.line, digitalAddress: address.digitalAddress, zone: zone.name };
+    if (!address?.line?.trim()) throw bad('Enter the delivery address');
+    addr = { line: address.line.trim(), digitalAddress: address.digitalAddress };
   }
   const method = payment?.method;
   if (!['momo', 'card', 'cod'].includes(method)) throw bad('Choose a payment method');
