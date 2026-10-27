@@ -78,6 +78,11 @@ const CATALOGUE = [
 ];
 
 (async () => {
+  // Seeding wipes the whole database. In production it needs an explicit go-ahead.
+  if (config.isProd && process.env.SEED_CONFIRM !== 'wipe-and-seed') {
+    console.error('Refusing to seed: this deletes ALL data in', config.mongoUri, '\nSet SEED_CONFIRM=wipe-and-seed to seed a fresh demo database.');
+    process.exit(1);
+  }
   await mongoose.connect(config.mongoUri);
   await mongoose.connection.dropDatabase();
   console.log('Seeding', config.mongoUri);

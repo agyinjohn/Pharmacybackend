@@ -4,7 +4,8 @@ const { wrap, bad, notFound, conflict, HttpError, escapeRegex, round2, seq } = r
 const { customer, signCustomer } = require('../middleware/auth');
 const { audit } = require('../services/audit');
 const { priceFor, oid } = require('../services/stock');
-const { otpDemoCode, isProd } = require('../config');
+const { otpDemoCode, demoMode } = require('../config');
+const sms = require('../services/sms');
 const { cancelOrder } = require('./orders');
 const payments = require('../services/payments');
 const { notify } = require('../services/notify');
@@ -174,10 +175,13 @@ router.post('/:slug/auth/request-otp', loadOrg, wrap(async (req, res) => {
     if (!req.body.name) return res.status(200).json({ newCustomer: true });
     c = new Customer({ org: req.orgId, name: req.body.name, phone, email: req.body.email });
   }
-  c.otp = { code: isProd ? String(Math.floor(100000 + Math.random() * 900000)) : otpDemoCode, expiresAt: new Date(Date.now() + 10 * 60000), tries: 0 };
+  c.otp = { code: demoMode ? otpDemoCode : String(Math.floor(100000 + Math.random() * 900000)), expiresAt: new Date(Date.now() + 10 * 60000), tries: 0 };
   await c.save();
-  console.log(`[notify] OTP for ${phone}: ${c.otp.code}`);
-  res.json({ sent: true, ...(isProd ? {} : { demoCode: c.otp.code }) });
+  if (demoMode) return res.json({ sent: true, demoCode: c.otp.code });
+  // Live: the code goes by SMS only and is never returned by the API.
+  try { await sms.send(phone, `Your ${req.org.name} sign-in code is ${c.otp.code}. It expires in 10 minutes.`); }
+  catch (e) { console.error('OTP SMS failed:', e.message); throw conflict('We could not send the code by SMS. Please try again shortly.'); }
+  res.json({ sent: true });
 }));
 
 router.post('/:slug/auth/verify', loadOrg, wrap(async (req, res) => {
@@ -248,6 +252,8 @@ router.post('/:slug/orders', loadOrg, customer, wrap(async (req, res) => {
   const { subtotal, tax } = priced;
   const discount = priced.promoDiscount;
   const total = round2(priced.total + deliveryFee);
+  // Without a payment provider, online payments are only simulated, which is allowed in demo mode alone.
+  if (method !== 'cod' && !payments.enabled() && !demoMode) throw conflict('Online payment is not set up yet. Please choose pay on delivery.');
   const live = method !== 'cod' && payments.enabled(); // real provider: hold stock until paid
   const reference = seq('PAY');
   const status = rxLines.length ? 'pending_review' : 'received';

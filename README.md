@@ -14,7 +14,7 @@ npm run dev                 # http://localhost:4000/api/health
 
 Demo logins (password `Demo@1234`): `owner@demo.com`, `manager@demo.com`, `pharmacist@demo.com`,
 `cashier@demo.com`, `store@demo.com`, `tech@demo.com`, `accountant@demo.com`, `rider@demo.com`, `auditor@demo.com`.
-Customer portal for the demo pharmacy uses slug `medicare`; the sign-in code is `123456` outside production.
+Customer portal for the demo pharmacy uses slug `medicare`; the sign-in code is `123456` in demo mode (see *Deploy*).
 
 ## Design
 
@@ -24,8 +24,41 @@ Customer portal for the demo pharmacy uses slug `medicare`; the sign-in code is 
 - **Prescriptions**: pharmacist-only verification (registration and licence checked), allergy / duplicate / interaction warnings with an override reason, atomic dispensed-quantity counter on the single shared prescription so it cannot be filled twice across branches, refills and partial fills, controlled drugs need the signed paper original sighted and cannot be refilled when `controlClass = strict`.
 - **Controlled-drug register**: append-only (update/delete blocked at model level), running balance per branch and product, disposal needs a witness, CSV extract, reconciliation against shelf stock.
 - **Audit log**: immutable; logs create/change/login and every view of a prescription or customer record.
-- **Customer portal** (`/api/portal/...`): OTP sign-in, catalogue with live branch stock and substitutes, controlled drugs never exposed, prescription upload, delivery zones and fees, order tracking, cancel before packing. Branches whose licence has lapsed stop taking online orders automatically.
+- **Customer portal** (`/api/portal/...`): OTP sign-in, catalogue with live branch stock and substitutes, controlled drugs never exposed, prescription upload, delivery or pickup (the delivery fee is agreed with the customer by phone and recorded on the order by staff), order tracking, cancel before packing. Branches whose licence has lapsed stop taking online orders automatically.
 - **Orders**: received / pending_review -> approved (stock taken, Rx verified) -> packed -> out_for_delivery (code for customer) -> delivered (proof) | failed (restock only if intact) | cancelled | rejected.
+
+## Deploy
+
+You need: a MongoDB database (MongoDB Atlas is easiest), a host for this API (any Docker or Node 22 host:
+Render, Railway, Fly.io, a VPS) and a host for the web app (Vercel, or the same Docker host). Use HTTPS for both.
+
+1. **Database**: create a MongoDB database and copy its connection string.
+2. **API**: deploy this repo (the `Dockerfile` works as is, or run `npm ci --omit=dev && npm start` on Node 22) with:
+
+   | Variable | Value |
+   |---|---|
+   | `NODE_ENV` | `production` (already set in the Docker image) |
+   | `MONGODB_URI` | your connection string |
+   | `JWT_SECRET` | a long random string, e.g. `openssl rand -hex 32` (the API will not start without it) |
+   | `CORS_ORIGIN` | the web app's address, e.g. `https://app.example.com` (comma-separate several) |
+   | `PUBLIC_WEB_URL` | the same web address (used for payment return links) |
+   | `DEMO_MODE` | `true` for a demo deployment only (see below) |
+   | `SMS_PROVIDER`, `ARKESEL_API_KEY`, `SMS_SENDER_ID` | for real text messages (needed for customer sign-in when not in demo mode) |
+   | `PAYSTACK_SECRET_KEY` | for real online payments; register `https://<api-host>/api/portal/webhooks/paystack` with Paystack |
+
+   Check `https://<api-host>/api/health` returns `{"ok":true}`.
+3. **Demo data** (demo deployment only, wipes the database):
+   `SEED_CONFIRM=wipe-and-seed npm run seed` (with the same `MONGODB_URI`), or
+   `docker compose run --rm -e SEED_CONFIRM=wipe-and-seed api node src/seed.js`.
+4. **Web app**: deploy the `Pharmacy` repo with `NEXT_PUBLIC_API_URL=https://<api-host>/api` (see its README).
+
+**Demo deployment vs live pharmacy**
+
+| | Demo (`DEMO_MODE=true`) | Live (unset) |
+|---|---|---|
+| Customer sign-in code | Always `OTP_DEMO_CODE` (default `123456`), shown on screen | Random, sent by SMS only |
+| Online payment without Paystack | Simulated as paid | Refused: customers choose pay on delivery |
+| Demo data | Seed it | Do not seed; create the pharmacy at `/signup` |
 
 ## Integrations and operations
 
@@ -46,7 +79,7 @@ Customer portal for the demo pharmacy uses slug `medicare`; the sign-in code is 
 
 ### Operations
 
-- **Deploy**: `docker compose up --build` (API + MongoDB); set `JWT_SECRET`, `CORS_ORIGIN`, `PUBLIC_WEB_URL`. Use MongoDB Atlas (with continuous backup) for production.
+- **Deploy**: see *Deploy* below.
 - **NFR-06 targets** (<= 1 hour data loss, <= 4 hours to restore): run `scripts/backup.sh` hourly with an off-site `BACKUP_UPLOAD_CMD`, or use Atlas continuous cloud backup. Test `scripts/restore.sh` into a scratch database at least twice a year.
 - **Uptime (NFR-04)**: `/api/health` for monitoring. Run two API instances behind a load balancer for 99.5%.
 - **Security**: set a strong `JWT_SECRET`, serve over HTTPS, enable MongoDB encryption at rest (Atlas default), and turn on *Require two-step sign-in* in Settings.
@@ -55,9 +88,9 @@ Customer portal for the demo pharmacy uses slug `medicare`; the sign-in code is 
 
 | Area | Demo behaviour | Production |
 |---|---|---|
-| Payments | Simulated unless `PAYSTACK_SECRET_KEY` is set | Verify the Paystack integration in sandbox |
+| Payments | Simulated in demo mode unless `PAYSTACK_SECRET_KEY` is set | Live: online payment is refused until Paystack is set up; verify it in sandbox first |
 | SMS | Logged unless `SMS_PROVIDER` is set; email is not implemented | Verify gateway, add email provider |
-| OTP | Fixed code returned by the API when `NODE_ENV != production` | Real SMS OTP |
+| OTP | Fixed code shown on screen in demo mode (`DEMO_MODE=true` or not production) | Sent by SMS only (set `SMS_PROVIDER`) |
 | Drug interactions | Small built-in table in `services/clinical.js` | Drug-information provider |
 | Prescription images | Stored as data URLs in MongoDB | Object storage |
 | GNEPP / FDA / courier / insurance / e-invoicing | Not implemented (phase 3, need client access) | Per integrations list |
