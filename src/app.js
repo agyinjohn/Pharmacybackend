@@ -14,6 +14,18 @@ app.use(express.json({ limit: '8mb', verify: (req, res, buf) => { req.rawBody = 
 if (!config.isProd) app.use(morgan('dev'));
 
 app.get('/api/health', (req, res) => res.json({ ok: true, time: new Date() }));
+// Product photos are public (shown in the online store); ids are unguessable and cached for a year
+// because the URL carries a version that changes on every upload.
+app.get('/api/images/products/:id', async (req, res, next) => {
+  try {
+    const { ProductImage } = require('./models');
+    if (!/^[a-f0-9]{24}$/.test(req.params.id)) return res.status(404).end();
+    const img = await ProductImage.findOne({ product: req.params.id });
+    if (!img) return res.status(404).end();
+    res.set({ 'Content-Type': img.contentType, 'Cache-Control': 'public, max-age=31536000, immutable', 'Cross-Origin-Resource-Policy': 'cross-origin', 'X-Content-Type-Options': 'nosniff' });
+    res.end(img.data);
+  } catch (e) { next(e); }
+});
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/portal', require('./routes/portal'));
 

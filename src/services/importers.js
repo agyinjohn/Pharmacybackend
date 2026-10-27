@@ -44,8 +44,8 @@ const findProduct = async (org, r) => {
 
 const IMPORTERS = {
   products: {
-    columns: ['brand', 'generic', 'strength', 'form', 'packSize', 'manufacturer', 'barcode', 'category', 'legalStatus', 'price', 'cost', 'taxRate', 'reorderLevel', 'fdaRegNo'],
-    example: { brand: 'Panadol Extra', generic: 'Paracetamol', strength: '500mg', form: 'Tablet', packSize: '24s', manufacturer: 'GSK', barcode: '6291000000017', category: 'Pain & Fever', legalStatus: 'otc', price: '18', cost: '11', taxRate: '0', reorderLevel: '15', fdaRegNo: 'FDA/10001' },
+    columns: ['brand', 'generic', 'strength', 'form', 'packSize', 'manufacturer', 'barcode', 'category', 'legalStatus', 'price', 'cost', 'taxRate', 'reorderLevel', 'fdaRegNo', 'imageUrl'],
+    example: { brand: 'Panadol Extra', generic: 'Paracetamol', strength: '500mg', form: 'Tablet', packSize: '24s', manufacturer: 'GSK', barcode: '6291000000017', category: 'Pain & Fever', legalStatus: 'otc', price: '18', cost: '11', taxRate: '0', reorderLevel: '15', fdaRegNo: 'FDA/10001', imageUrl: '' },
     async row(r, { org }) {
       const brand = str(r.brand); if (!brand) throw new Error('brand is required');
       const legalStatus = str(r.legalStatus || 'otc').toLowerCase().replace(/[\s-]/g, '_');
@@ -57,6 +57,8 @@ const IMPORTERS = {
         price: num(r.price, 'price', { required: true }), cost: num(r.cost, 'cost') ?? 0, taxRate: taxRate > 1 ? taxRate / 100 : taxRate,
         reorderLevel: num(r.reorderLevel, 'reorderLevel') ?? 10,
       };
+      const img = str(r.imageUrl);
+      if (img) { if (!/^https:\/\/\S+$/i.test(img)) throw new Error('imageUrl must be an https:// link'); data.imageUrl = img; }
       const existing = data.barcode ? await Product.findOne({ org, barcode: data.barcode }) : null;
       return { op: existing ? 'update' : 'create', apply: async () => (existing ? Object.assign(existing, data).save() : Product.create({ ...data, org })) };
     },

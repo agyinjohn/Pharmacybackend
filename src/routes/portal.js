@@ -137,7 +137,7 @@ router.get('/:slug/products', loadOrg, wrap(async (req, res) => {
     stock = new Map(rows.map((r) => [String(r._id), r.qty]));
   }
   res.json(products.map((p) => ({
-    _id: p._id, brand: p.brand, generic: p.generic, strength: p.strength, form: p.form, packSize: p.packSize, category: p.category,
+    _id: p._id, brand: p.brand, generic: p.generic, strength: p.strength, form: p.form, packSize: p.packSize, category: p.category, imageUrl: p.imageUrl,
     price: branch ? priceFor(p, branch) : p.price, requiresRx: p.legalStatus === 'prescription_only', legalStatus: p.legalStatus,
     taxRate: p.taxRate, stock: stock.get(String(p._id)) || 0, inStock: (stock.get(String(p._id)) || 0) > 0,
     promo: bestPromo(promos, { p, qty: 1 }, branch ? priceFor(p, branch) : p.price, { channel: 'online', branch, now: new Date() })?.name
@@ -157,7 +157,7 @@ router.get('/:slug/products/:id/alternatives', loadOrg, wrap(async (req, res) =>
   const subs = await Product.find({ org: req.orgId, _id: { $ne: p._id }, active: true, legalStatus: { $ne: 'controlled' }, generic: new RegExp(`^${escapeRegex(p.generic)}$`, 'i') });
   const rows = req.query.branch ? await Batch.aggregate([{ $match: { branch: oid(req.query.branch), product: { $in: subs.map((s) => s._id) }, status: 'active', qty: { $gt: 0 }, expiry: { $gt: new Date() } } }, { $group: { _id: '$product', qty: { $sum: '$qty' } } }]) : [];
   const m = new Map(rows.map((r) => [String(r._id), r.qty]));
-  res.json(subs.map((s) => ({ _id: s._id, brand: s.brand, strength: s.strength, price: s.price, requiresRx: s.legalStatus === 'prescription_only', stock: m.get(String(s._id)) || 0 })));
+  res.json(subs.map((s) => ({ _id: s._id, brand: s.brand, strength: s.strength, imageUrl: s.imageUrl, price: s.price, requiresRx: s.legalStatus === 'prescription_only', stock: m.get(String(s._id)) || 0 })));
 }));
 
 /* ---- Sign-in with one-time code (CP-ACC-01) ---- */

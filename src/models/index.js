@@ -113,6 +113,7 @@ const Product = mongoose.model('Product', new Schema({
   branchReorder: [{ branch: ref('Branch'), level: Number }],
   storage: { type: String, enum: ['ambient', 'cold_chain'], default: 'ambient' },
   symptoms: [String],
+  imageUrl: String, // uploaded photo (/api/images/products/:id?v=...) or an external https URL from an import
   active: { type: Boolean, default: true },
 }, opts).index({ brand: 'text', generic: 'text' }));
 
@@ -468,6 +469,14 @@ const ReminderLog = mongoose.model('ReminderLog', new Schema({
   status: String,
 }, { timestamps: { createdAt: true, updatedAt: false } }).index({ plan: 1, slot: 1 }, { unique: true }));
 
+// Product photos live apart from products so catalogue lists stay small.
+const ProductImage = mongoose.model('ProductImage', new Schema({
+  org: ref('Organization', { required: true }),
+  product: ref('Product', { required: true, unique: true }),
+  contentType: { type: String, required: true },
+  data: { type: Buffer, required: true },
+}, opts));
+
 const Promotion = mongoose.model('Promotion', new Schema({
   org: ref('Organization', { required: true, index: true }),
   name: { type: String, required: true },
@@ -513,5 +522,5 @@ const Lead = mongoose.model('Lead', new Schema({
 module.exports = {
   ROLES, LEGAL,
   Organization, Branch, User, Product, Batch, Supplier, PurchaseOrder, StockTransfer,
-  Customer, Prescription, ControlledRegister, Shift, Sale, Order, AuditLog, Lead, SupplierReturn, Notification, Ledger, ImportLog, ProcessingActivity, SecurityIncident, Promotion, OfflineOp, ReminderPlan, ReminderLog,
+  Customer, Prescription, ControlledRegister, Shift, Sale, Order, AuditLog, Lead, SupplierReturn, Notification, Ledger, ImportLog, ProcessingActivity, SecurityIncident, Promotion, OfflineOp, ReminderPlan, ReminderLog, ProductImage,
 };

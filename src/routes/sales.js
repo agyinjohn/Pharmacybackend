@@ -35,7 +35,7 @@ router.get('/pos/catalog', branch(), roles(...POS), wrap(async (req, res) => {
     { $group: { _id: '$product', qty: { $sum: '$qty' }, nextExpiry: { $min: '$expiry' } } },
   ]);
   const m = new Map(rows.map((r) => [String(r._id), r]));
-  res.json({ at: new Date(), products: products.map((p) => ({ _id: p._id, brand: p.brand, generic: p.generic, strength: p.strength, barcode: p.barcode, legalStatus: p.legalStatus, taxRate: p.taxRate, price: priceFor(p, req.branchId), stock: m.get(String(p._id))?.qty || 0, nextExpiry: m.get(String(p._id))?.nextExpiry })) });
+  res.json({ at: new Date(), products: products.map((p) => ({ _id: p._id, brand: p.brand, generic: p.generic, strength: p.strength, imageUrl: p.imageUrl, barcode: p.barcode, legalStatus: p.legalStatus, taxRate: p.taxRate, price: priceFor(p, req.branchId), stock: m.get(String(p._id))?.qty || 0, nextExpiry: m.get(String(p._id))?.nextExpiry })) });
 }));
 
 // Upload sales made while offline. Each one is processed on its own so a bad sale does not block

@@ -121,6 +121,15 @@ const login = async (email) => { const d = ok(await call('/auth/login', { body: 
   });
   await step('reminder sweep runs', async () => { const r = ok(await call('/reminders/run', { token: owner.token, body: {} })); if (typeof r.dose !== 'number') throw new Error(JSON.stringify(r)); });
 
+  // Product photos
+  const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+  await step('upload a product photo and serve it publicly', async () => {
+    const p = ok(await call(`/products/${panadol._id}/image`, { token: owner.token, body: { image: PNG } }));
+    const r = await fetch(`${API}${p.imageUrl}`); if (r.status !== 200 || r.headers.get('content-type') !== 'image/png') throw new Error(`${r.status} ${r.headers.get('content-type')}`);
+    const listed = ok(await call(`/portal/${slug}/products?q=Panadol`)); if (!listed[0].imageUrl) throw new Error('store list has no image');
+  });
+  await step('fake image rejected', async () => { ok(await call(`/products/${panadol._id}/image`, { token: owner.token, body: { image: 'data:image/png;base64,' + Buffer.from('<svg onload=alert(1)>').toString('base64') } }), 400); });
+
   // Pharmacist edits an online order before approval (CP-ORD-03)
   const order2 = await step('place order to edit', async () => ok(await call(`/portal/${slug}/orders`, { token: cust.token, body: { branch: branchObj._id, items: [{ product: otc._id, qty: 3 }], fulfilment: 'pickup', payment: { method: 'momo' } } }), 201));
   await step('edit needs a reason', async () => { ok(await call(`/orders/${order2._id}/edit`, { token: pharm.token, branch: acc, body: { lines: [{ product: otc._id, qty: 1 }] } }), 400); });
