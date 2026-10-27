@@ -83,7 +83,7 @@ router.get('/sales', branch(false), wrap(async (req, res) => {
 router.get('/sales/held', branch(), wrap(async (req, res) => res.json(await Sale.find({ org: req.orgId, branch: req.branchId, cashier: req.user._id, status: 'held' }).sort('-createdAt'))));
 
 router.get('/sales/:id', wrap(async (req, res) => {
-  const s = await Sale.findOne({ _id: req.params.id, org: req.orgId }).populate('cashier branch', 'name address phone receiptHeader taxId').populate('customer', 'name phone');
+  const s = await Sale.findOne({ _id: req.params.id, org: req.orgId }).populate('cashier branch', 'name address phone receiptHeader taxId').populate('customer', 'name phone').populate('refunds.by', 'name');
   if (!s) throw notFound();
   res.json(s);
 }));
