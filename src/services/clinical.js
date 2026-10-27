@@ -13,6 +13,25 @@ const INTERACTIONS = [
 
 const norm = (s) => String(s || '').toLowerCase();
 
+// Allergies are usually recorded as a drug class ("penicillin", "sulfa"), so expand each class
+// to the generic names it covers before matching.
+const ALLERGY_CLASSES = {
+  penicillin: ['amoxicillin', 'ampicillin', 'flucloxacillin', 'cloxacillin', 'benzylpenicillin', 'phenoxymethylpenicillin', 'piperacillin'],
+  cephalosporin: ['cefuroxime', 'ceftriaxone', 'cefalexin', 'cefixime', 'cefpodoxime'],
+  sulfa: ['sulfamethoxazole', 'sulfadoxine', 'sulfasalazine'],
+  sulphonamide: ['sulfamethoxazole', 'sulfadoxine', 'sulfasalazine'],
+  nsaid: ['ibuprofen', 'diclofenac', 'naproxen', 'aspirin', 'piroxicam', 'indomethacin'],
+  aspirin: ['aspirin', 'acetylsalicylic acid'],
+  opioid: ['morphine', 'tramadol', 'codeine', 'pethidine'],
+  macrolide: ['erythromycin', 'azithromycin', 'clarithromycin'],
+  quinolone: ['ciprofloxacin', 'levofloxacin', 'ofloxacin'],
+};
+const allergyTerms = (a) => {
+  const al = norm(a).replace(/s$/, '');
+  const hit = Object.entries(ALLERGY_CLASSES).find(([k]) => al.includes(k) || k.includes(al));
+  return [al, ...(hit ? hit[1] : [])];
+};
+
 const checkPrescription = (products, allergies = []) => {
   const warnings = [];
   const gen = products.map((p) => norm(p.generic || p.brand));
@@ -24,8 +43,9 @@ const checkPrescription = (products, allergies = []) => {
   products.forEach((p) => {
     const names = [norm(p.generic), norm(p.brand)];
     allergies.forEach((a) => {
-      const al = norm(a);
-      if (al && names.some((n) => n && (n.includes(al) || al.includes(n)))) warnings.push(`ALLERGY: patient is allergic to ${a} (${p.brand})`);
+      if (!norm(a)) return;
+      const terms = allergyTerms(a);
+      if (names.some((n) => n && terms.some((t) => n.includes(t) || t.includes(n)))) warnings.push(`ALLERGY: patient is allergic to ${a} (${p.brand})`);
     });
   });
   INTERACTIONS.forEach(([a, b, msg]) => {

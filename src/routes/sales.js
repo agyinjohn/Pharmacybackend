@@ -183,7 +183,7 @@ router.patch('/customers/:id', writable, wrap(async (req, res) => {
 router.post('/customers/:id/payments', roles('accountant', 'cashier', 'branch_manager'), writable, wrap(async (req, res) => {
   const amount = Number(req.body.amount);
   if (!(amount > 0)) throw bad('Enter an amount');
-  const c = await Customer.findOneAndUpdate({ _id: req.params.id, org: req.orgId }, { $inc: { balance: -amount } }, { new: true });
+  const c = await Customer.findOneAndUpdate({ _id: req.params.id, org: req.orgId }, { $inc: { balance: -amount } }, { returnDocument: 'after' });
   if (!c) throw notFound();
   await Ledger.create({ org: req.orgId, customer: c._id, type: 'payment', amount, ref: req.body.reference, by: req.user._id });
   await audit(req, 'customer.payment', 'Customer', c._id, `Received ${amount} on account from ${c.name}`);

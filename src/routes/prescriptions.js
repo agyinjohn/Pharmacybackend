@@ -88,14 +88,14 @@ router.post('/prescriptions/:id/reject', roles('pharmacist'), writable, wrap(asy
 router.post('/prescriptions/:id/notes', roles('pharmacist'), writable, wrap(async (req, res) => {
   const { type = 'counselling', text } = req.body;
   if (!text) throw bad('Note text is required');
-  const rx = await Prescription.findOneAndUpdate({ _id: req.params.id, org: req.orgId }, { $push: { notes: { by: req.user._id, type, text } } }, { new: true });
+  const rx = await Prescription.findOneAndUpdate({ _id: req.params.id, org: req.orgId }, { $push: { notes: { by: req.user._id, type, text } } }, { returnDocument: 'after' });
   if (!rx) throw notFound();
   await audit(req, 'rx.note', 'Prescription', rx._id, `Pharmacist note (${type}) on ${rx.rxNo}`);
   res.json(rx);
 }));
 
 router.post('/prescriptions/:id/paper-sighted', roles('pharmacist'), writable, wrap(async (req, res) => {
-  const rx = await Prescription.findOneAndUpdate({ _id: req.params.id, org: req.orgId }, { paperOriginalSeen: true }, { new: true });
+  const rx = await Prescription.findOneAndUpdate({ _id: req.params.id, org: req.orgId }, { paperOriginalSeen: true }, { returnDocument: 'after' });
   if (!rx) throw notFound();
   await audit(req, 'rx.paper', 'Prescription', rx._id, `Signed paper original sighted for ${rx.rxNo}`);
   res.json(rx);

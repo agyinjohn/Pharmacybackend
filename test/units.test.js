@@ -19,6 +19,10 @@ test('clinical checks: allergy, duplicate therapy and interactions', () => {
   assert.ok(checkPrescription([amox, { brand: 'Other', generic: 'Amoxicillin' }]).some((w) => /Duplicate/.test(w)));
   assert.ok(checkPrescription([{ brand: 'Tramadol 50', generic: 'Tramadol' }, { brand: 'Diazepam 5', generic: 'Diazepam' }]).some((w) => /sedation/.test(w)));
   assert.deepEqual(checkPrescription([{ brand: 'Panadol', generic: 'Paracetamol' }], ['Penicillin']), []);
+  // class allergies: a penicillin allergy must flag amoxicillin products
+  assert.ok(checkPrescription([amox], ['Penicillin']).some((w) => /ALLERGY/.test(w)));
+  assert.ok(checkPrescription([{ brand: 'Augmentin', generic: 'Amoxicillin/Clavulanate' }], ['penicillins']).some((w) => /ALLERGY/.test(w)));
+  assert.ok(checkPrescription([{ brand: 'Ibuprofen 400', generic: 'Ibuprofen' }], ['NSAIDs']).some((w) => /ALLERGY/.test(w)));
 });
 
 test('csv export escapes commas, quotes and newlines', () => {

@@ -54,7 +54,7 @@ const deductFefo = async ({ org, branch, product, qty, label }) => {
 const addBatch = ({ org, branch, product, batchNo, expiry, qty, cost, supplier }) => Batch.findOneAndUpdate(
   { org, branch, product, batchNo, expiry: new Date(expiry) },
   { $inc: { qty }, $set: { cost, ...(supplier ? { supplier } : {}) }, $setOnInsert: { status: 'active' } },
-  { upsert: true, new: true },
+  { upsert: true, returnDocument: 'after' },
 );
 
 // Controlled-drug register: append-only with a running balance per branch and product.

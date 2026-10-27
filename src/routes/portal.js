@@ -83,7 +83,7 @@ router.post('/orders/:id/cancel', customer, wrap(async (req, res) => {
 
 router.post('/orders/:id/message', customer, wrap(async (req, res) => {
   if (!req.body.text) throw bad('Message text is required');
-  const o = await Order.findOneAndUpdate({ _id: req.params.id, customer: req.customer._id }, { $push: { messages: { from: 'customer', text: req.body.text } } }, { new: true });
+  const o = await Order.findOneAndUpdate({ _id: req.params.id, customer: req.customer._id }, { $push: { messages: { from: 'customer', text: req.body.text } } }, { returnDocument: 'after' });
   if (!o) throw notFound();
   res.json(o);
 }));

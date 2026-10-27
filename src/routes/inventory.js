@@ -157,14 +157,14 @@ router.post('/suppliers', roles('store_officer', 'branch_manager', 'accountant')
 }));
 router.patch('/suppliers/:id', roles('store_officer', 'branch_manager', 'accountant'), writable, wrap(async (req, res) => {
   const { balance, org, ...rest } = req.body;
-  const s = await Supplier.findOneAndUpdate({ _id: req.params.id, org: req.orgId }, rest, { new: true });
+  const s = await Supplier.findOneAndUpdate({ _id: req.params.id, org: req.orgId }, rest, { returnDocument: 'after' });
   if (!s) throw notFound();
   res.json(s);
 }));
 router.post('/suppliers/:id/payments', roles('accountant', 'branch_manager'), writable, wrap(async (req, res) => {
   const amount = Number(req.body.amount);
   if (!(amount > 0)) throw bad('Enter a payment amount');
-  const s = await Supplier.findOneAndUpdate({ _id: req.params.id, org: req.orgId }, { $inc: { balance: -amount } }, { new: true });
+  const s = await Supplier.findOneAndUpdate({ _id: req.params.id, org: req.orgId }, { $inc: { balance: -amount } }, { returnDocument: 'after' });
   if (!s) throw notFound();
   await audit(req, 'supplier.payment', 'Supplier', s._id, `Paid ${amount} to ${s.name}`);
   res.json(s);

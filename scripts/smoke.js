@@ -91,6 +91,10 @@ const login = async (email) => { const d = ok(await call('/auth/login', { body: 
   await step('delivery with wrong code refused', async () => { ok(await call(`/orders/${order._id}/deliver`, { token: rider.token, body: { recipient: 'X', code: '0000' } }), 409); });
   await step('delivery with right code', async () => ok(await call(`/orders/${order._id}/deliver`, { token: rider.token, body: { recipient: 'Smoke Tester', code: mine.deliveryCode } })));
 
+  // Transfers and purchasing
+  const tr = await step('request transfer', async () => ok(await call('/transfers', { token: owner.token, body: { from: acc, to: ksi, items: [{ product: panadol._id, qty: 5 }] } }), 201));
+  await step('dispatch transfer', async () => ok(await call(`/transfers/${tr._id}/dispatch`, { token: owner.token, body: {} })));
+  await step('receive transfer short flags variance', async () => { const t = ok(await call(`/transfers/${tr._id}/receive`, { token: owner.token, body: { items: [{ product: panadol._id, receivedQty: 4 }] } })); if (!t.hasVariance) throw new Error('variance not flagged'); });
   // Offline sync: idempotent by clientId, shortfalls flagged instead of rejected
   const cid = `smoke-${Date.now()}`;
   const offlineSale = { clientId: cid, createdAt: new Date(Date.now() - 3600000).toISOString(), items: [{ product: panadol._id, qty: 100000 }], payments: [{ method: 'cash', amount: 100000000 }] };
@@ -99,10 +103,6 @@ const login = async (email) => { const d = ok(await call('/auth/login', { body: 
   await step('catalog snapshot for offline use', async () => { const d = ok(await call('/pos/catalog', { token: cashier.token, branch: acc })); if (!d.products.length) throw new Error('empty'); });
   await step('customer account statement', async () => { const cs = ok(await call('/customers?q=Sunrise', { token: owner.token })); const st = ok(await call(`/customers/${cs[0]._id}/statement`, { token: owner.token })); if (st.rows[0].balance !== 1350) throw new Error('bad balance'); });
 
-  // Transfers and purchasing
-  const tr = await step('request transfer', async () => ok(await call('/transfers', { token: owner.token, body: { from: acc, to: ksi, items: [{ product: panadol._id, qty: 5 }] } }), 201));
-  await step('dispatch transfer', async () => ok(await call(`/transfers/${tr._id}/dispatch`, { token: owner.token, body: {} })));
-  await step('receive transfer short flags variance', async () => { const t = ok(await call(`/transfers/${tr._id}/receive`, { token: owner.token, body: { items: [{ product: panadol._id, receivedQty: 4 }] } })); if (!t.hasVariance) throw new Error('variance not flagged'); });
   await step('reorder suggestions', async () => ok(await call('/inventory/reorder-suggestions', { token: owner.token, branch: acc })));
   await step('reports: sales by day', async () => ok(await call('/reports/sales?by=day&branch=all', { token: owner.token })));
   await step('reports: csv export', async () => { const r = await fetch(`${API}/reports/stock?format=csv&branch=all`, { headers: { Authorization: `Bearer ${owner.token}` } }); if (!(r.headers.get('content-type') || '').includes('csv')) throw new Error('not csv'); });
