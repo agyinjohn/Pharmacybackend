@@ -1,0 +1,29 @@
+{
+  "name": "pharmacy-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Multi-tenant, multi-branch pharmacy management SaaS API",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "seed": "node src/seed.js",
+    "smoke": "node scripts/smoke.js",
+    "test": "node --test test/units.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.9",
+    "exceljs": "^4.4.0",
+    "express": "^5.3.0",
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.11.4",
+    "morgan": "^1.12.1"
+  }
+}

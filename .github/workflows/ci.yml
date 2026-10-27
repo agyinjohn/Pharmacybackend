@@ -1,0 +1,26 @@
+name: CI
+on:
+  push: { branches: [main] }
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:7
+        ports: ["27017:27017"]
+    env:
+      MONGODB_URI: mongodb://127.0.0.1:27017/pharmacy_ci
+      JWT_SECRET: ci-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm test
+      - name: Seed and smoke-test against a real MongoDB
+        run: |
+          npm run seed
+          node src/server.js &
+          for i in $(seq 1 30); do curl -sf localhost:4000/api/health && break; sleep 1; done
+          npm run smoke

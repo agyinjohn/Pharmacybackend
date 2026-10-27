@@ -1,0 +1,6 @@
+version: 2
+secret:
+  ignored-matches:
+    # RFC 6238 Appendix B TOTP test key (public test vector, not a credential), stored as its SHA-256.
+    - name: rfc6238-test-vector
+      match: 549c9390539efcfa01d2744e82e7da34409a63dd0feaf310f7a6e12551fe7668
