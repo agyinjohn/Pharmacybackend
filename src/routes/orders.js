@@ -52,7 +52,10 @@ router.get('/orders/:id', roles(...ORDER_STAFF), wrap(async (req, res) => {
   const o = await loadOrder(req);
   await o.populate([{ path: 'prescription' }, { path: 'branch', select: 'name' }]);
   if (o.prescription) await audit(req, 'rx.view', 'Prescription', o.prescription._id, `Viewed prescription ${o.prescription.rxNo} via order ${o.orderNo}`);
-  res.json(o);
+  const pics = new Map((await Product.find({ _id: { $in: o.items.map((i) => i.product) } }, 'imageUrl').lean()).map((p) => [String(p._id), p.imageUrl]));
+  const out = o.toJSON();
+  out.items = out.items.map((i) => ({ ...i, imageUrl: pics.get(String(i.product)) || null }));
+  res.json(out);
 }));
 
 // Approve: Rx items need a verified prescription; stock is reserved (taken FEFO) at this point.
