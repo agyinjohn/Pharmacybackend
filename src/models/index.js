@@ -24,6 +24,11 @@ const Organization = mongoose.model('Organization', new Schema({
     reservationMinutes: { type: Number, default: 60 },
     shareStockAcrossBranches: { type: Boolean, default: true },
     requireTwoStep: { type: Boolean, default: false },
+    reminders: {
+      enabled: { type: Boolean, default: true },          // create dose reminders when dispensing
+      refillDaysBefore: { type: Number, default: 3 },     // refill-due reminder this many days before supply ends
+      timezone: { type: String, default: 'Africa/Accra' },
+    },
     loyalty: {
       enabled: { type: Boolean, default: true },
       pointsPerCedi: { type: Number, default: 0.1 },  // 1 point for every GHS 10 spent
@@ -436,6 +441,33 @@ const OfflineOp = mongoose.model('OfflineOp', new Schema({
   result: Schema.Types.Mixed,
 }, { timestamps: { createdAt: true, updatedAt: false } }).index({ org: 1, clientId: 1 }, { unique: true }));
 
+// A patient's medication reminder plan for one medicine (FR-RX-10, CP-NOT-02).
+const ReminderPlan = mongoose.model('ReminderPlan', new Schema({
+  org: ref('Organization', { required: true, index: true }),
+  customer: ref('Customer', { required: true, index: true }),
+  prescription: ref('Prescription'),
+  branch: ref('Branch'),
+  product: ref('Product'),
+  medicine: { type: String, required: true },
+  dose: String,
+  times: [String],                 // local HH:MM
+  startDate: { type: Date, default: Date.now },
+  endDate: Date,                   // when the supply runs out
+  refill: { type: Boolean, default: true },   // remind before the supply ends if refills remain
+  refillRemindedAt: Date,
+  active: { type: Boolean, default: true },   // false = stopped for good
+  paused: { type: Boolean, default: false },
+  createdBy: String,
+  stoppedBy: String,
+}, opts));
+
+// One row per reminder slot sent, so a dose reminder is never sent twice (unique plan + slot).
+const ReminderLog = mongoose.model('ReminderLog', new Schema({
+  plan: ref('ReminderPlan', { required: true }),
+  slot: { type: String, required: true },
+  status: String,
+}, { timestamps: { createdAt: true, updatedAt: false } }).index({ plan: 1, slot: 1 }, { unique: true }));
+
 const Promotion = mongoose.model('Promotion', new Schema({
   org: ref('Organization', { required: true, index: true }),
   name: { type: String, required: true },
@@ -481,5 +513,5 @@ const Lead = mongoose.model('Lead', new Schema({
 module.exports = {
   ROLES, LEGAL,
   Organization, Branch, User, Product, Batch, Supplier, PurchaseOrder, StockTransfer,
-  Customer, Prescription, ControlledRegister, Shift, Sale, Order, AuditLog, Lead, SupplierReturn, Notification, Ledger, ImportLog, ProcessingActivity, SecurityIncident, Promotion, OfflineOp,
+  Customer, Prescription, ControlledRegister, Shift, Sale, Order, AuditLog, Lead, SupplierReturn, Notification, Ledger, ImportLog, ProcessingActivity, SecurityIncident, Promotion, OfflineOp, ReminderPlan, ReminderLog,
 };

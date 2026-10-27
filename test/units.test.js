@@ -77,3 +77,31 @@ test('manual discount is spread across lines and tax is charged on the discounte
   assert.equal(r.tax, 13.5); assert.equal(r.total, 193.5);
   assert.equal(r.lines[0].net + r.lines[1].net, r.total);
 });
+
+const { timesFor, daysFor, planFromDirections, dueSlots } = require('../src/services/reminders');
+
+test('reminders: directions become dose times', () => {
+  assert.deepEqual(timesFor('Twice daily'), ['08:00', '20:00']);
+  assert.deepEqual(timesFor('BD'), ['08:00', '20:00']);
+  assert.deepEqual(timesFor('3 times daily'), ['07:00', '14:00', '21:00']);
+  assert.deepEqual(timesFor('TDS after food'), ['07:00', '14:00', '21:00']);
+  assert.deepEqual(timesFor('At night'), ['21:00']);
+  assert.deepEqual(timesFor('Once daily'), ['08:00']);
+  assert.deepEqual(timesFor('every 8 hours'), ['06:00', '14:00', '22:00']);
+  assert.equal(timesFor('as directed'), null);
+});
+
+test('reminders: supply length from duration or quantity', () => {
+  assert.equal(daysFor('7 days'), 7); assert.equal(daysFor('2 weeks'), 14); assert.equal(daysFor('1 month'), 30); assert.equal(daysFor('5/7'), 5);
+  assert.deepEqual(planFromDirections({ frequency: 'Twice daily', qty: 60 }), { times: ['08:00', '20:00'], days: 30 });
+  assert.deepEqual(planFromDirections({ frequency: 'TDS', duration: '7 days', qty: 21 }), { times: ['07:00', '14:00', '21:00'], days: 7 });
+});
+
+test('reminders: only slots inside the window are due, and never when paused or ended', () => {
+  const plan = { active: true, times: ['08:00', '20:00'], startDate: new Date('2026-10-01T00:00:00Z'), endDate: new Date('2026-12-01T00:00:00Z') };
+  assert.deepEqual(dueSlots(plan, new Date('2026-10-27T08:10:00Z')), ['2026-10-27 08:00']); // Accra is UTC+0
+  assert.deepEqual(dueSlots(plan, new Date('2026-10-27T07:59:00Z')), []);
+  assert.deepEqual(dueSlots(plan, new Date('2026-10-27T09:00:00Z')), []); // missed by more than 30 min: skipped, not sent late
+  assert.deepEqual(dueSlots({ ...plan, paused: true }, new Date('2026-10-27T08:10:00Z')), []);
+  assert.deepEqual(dueSlots(plan, new Date('2026-12-02T08:10:00Z')), []);
+});

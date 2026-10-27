@@ -57,7 +57,11 @@ const login = async (email) => { const d = ok(await call('/auth/login', { body: 
   await step('verify raises allergy warning', async () => { const r = await call(`/prescriptions/${rx1._id}/verify`, { token: pharm.token, branch: acc, body: {} }); ok(r, 409); if (!r.data.warnings.some((w) => /ALLERGY/.test(w))) throw new Error('no allergy warning'); });
   await step('override needs reason', async () => { ok(await call(`/prescriptions/${rx1._id}/verify`, { token: pharm.token, branch: acc, body: { override: true } }), 400); });
   await step('override with reason verifies', async () => ok(await call(`/prescriptions/${rx1._id}/verify`, { token: pharm.token, branch: acc, body: { override: true, overrideReason: 'Tolerated before, doctor aware' } })));
-  await step('dispense verified Rx', async () => { const d = ok(await call(`/prescriptions/${rx2._id}/dispense`, { token: pharm.token, branch: acc, body: {} })); if (!d.labels.length) throw new Error('no labels'); });
+  await step('dispense verified Rx creates dose reminders', async () => {
+    const d = ok(await call(`/prescriptions/${rx2._id}/dispense`, { token: pharm.token, branch: acc, body: {} }));
+    if (!d.labels.length) throw new Error('no labels');
+    if (d.reminders.length !== 1 || d.reminders[0].times.join() !== '08:00,20:00') throw new Error(JSON.stringify(d.reminders));
+  });
   await step('Rx cannot be dispensed beyond allowance (1 fill + 1 refill)', async () => {
     for (let i = 0; i < 1; i++) ok(await call(`/prescriptions/${rx2._id}/dispense`, { token: pharm.token, branch: acc, body: {} }));
     ok(await call(`/prescriptions/${rx2._id}/dispense`, { token: pharm.token, branch: acc, body: {} }), 409);
@@ -103,6 +107,19 @@ const login = async (email) => { const d = ok(await call('/auth/login', { body: 
   await step('catalog snapshot for offline use', async () => { const d = ok(await call('/pos/catalog', { token: cashier.token, branch: acc })); if (!d.products.length) throw new Error('empty'); });
   await step('customer account statement', async () => { const cs = ok(await call('/customers?q=Sunrise', { token: owner.token })); const st = ok(await call(`/customers/${cs[0]._id}/statement`, { token: owner.token })); if (st.rows[0].balance !== 1350) throw new Error('bad balance'); });
 
+
+  // Medication reminders (FR-RX-10, CP-NOT-02)
+  const kw = ok(await call('/customers?q=Kwabena', { token: owner.token }))[0];
+  const mo = ok(await call('/customers?q=Mohammed', { token: owner.token }))[0];
+  await step('reminder test reaches a consenting patient', async () => { const pl = ok(await call('/reminders', { token: pharm.token, branch: acc, body: { customer: kw._id, medicine: 'Amlodipine 5mg', times: ['21:00', '09:00'], days: 30 } }), 201); if (pl.times.join() !== '09:00,21:00') throw new Error('times not sorted'); const t = ok(await call(`/reminders/${pl._id}/test`, { token: pharm.token, branch: acc, body: {} })); if (t.status !== 'sent' || !/Amlodipine/.test(t.message)) throw new Error(JSON.stringify(t)); });
+  await step('no reminder sent without consent', async () => { const plans = ok(await call(`/customers/${mo._id}/reminders`, { token: pharm.token, branch: acc })); const t = ok(await call(`/reminders/${plans[0]._id}/test`, { token: pharm.token, branch: acc, body: {} })); if (t.status !== 'skipped') throw new Error(JSON.stringify(t)); });
+  await step('bad reminder time rejected', async () => { ok(await call('/reminders', { token: pharm.token, branch: acc, body: { customer: kw._id, medicine: 'X', times: ['25:00'] } }), 400); });
+  await step('patient pauses own reminder in the portal', async () => {
+    ok(await call('/reminders', { token: pharm.token, branch: acc, body: { customer: cust.customer._id, medicine: 'Vitamin C', times: ['08:00'] } }), 201);
+    const mine = ok(await call('/portal/me/reminders', { token: cust.token })); if (mine.length !== 1) throw new Error('not visible');
+    const p2 = ok(await call(`/portal/me/reminders/${mine[0]._id}`, { method: 'PATCH', token: cust.token, body: { paused: true } })); if (!p2.paused) throw new Error('not paused');
+  });
+  await step('reminder sweep runs', async () => { const r = ok(await call('/reminders/run', { token: owner.token, body: {} })); if (typeof r.dose !== 'number') throw new Error(JSON.stringify(r)); });
 
   // Pharmacist edits an online order before approval (CP-ORD-03)
   const order2 = await step('place order to edit', async () => ok(await call(`/portal/${slug}/orders`, { token: cust.token, body: { branch: branchObj._id, items: [{ product: otc._id, qty: 3 }], fulfilment: 'pickup', payment: { method: 'momo' } } }), 201));

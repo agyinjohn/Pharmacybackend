@@ -153,6 +153,9 @@ const CATALOGUE = [
     { org: org._id, branch: acc._id, rxNo: 'RX-DEMO-003', patientName: 'Nana Ama Boakye', prescriber: { name: 'Dr. Yaa Frimpong', regNo: 'MDC/30112', facility: 'Korle Bu Teaching Hospital', address: 'Korle Bu, Accra' }, items: [{ product: byBrand('Diazepam 5')._id, name: 'Diazepam 5', dose: '5mg', frequency: 'At night', duration: '14 days', qty: 14 }], hasControlled: true, paperOriginalSeen: true, status: 'verified', verifiedBy: pharm._id, verifiedAt: new Date() },
   ]);
 
+  // A running medication reminder plan for the demo (Kwabena consented to messages and health data).
+  await M.ReminderPlan.create({ org: org._id, customer: customers[0]._id, branch: acc._id, product: byBrand('Amlodipine 5')._id, medicine: 'Amlodipine 5mg', dose: '1 tablet', times: ['08:00', '20:00'], startDate: day(-3), endDate: day(27), refill: false, createdBy: pharm.name });
+
   // Online orders in different states.
   const rxOrderRx = await M.Prescription.create({ org: org._id, branch: acc._id, rxNo: 'RX-DEMO-004', customer: customers[1]._id, patientName: customers[1].name, prescriber: { name: 'As on uploaded prescription' }, source: 'online', items: [{ product: byBrand('Ciprofloxacin 500')._id, name: 'Ciprofloxacin 500', qty: 10 }] });
   const mkItem = (p, qty, rx = false) => ({ product: p._id, name: `${p.brand} ${p.strength || ''}`.trim(), qty, unitPrice: p.price, taxRate: p.taxRate, requiresRx: rx });

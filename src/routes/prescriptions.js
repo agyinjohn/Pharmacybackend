@@ -5,6 +5,7 @@ const { staff, roles, branch, writable } = require('../middleware/auth');
 const { audit } = require('../services/audit');
 const { checkPrescription } = require('../services/clinical');
 const { completeSale } = require('../services/sales');
+const { plansFromDispensing } = require('../services/reminders');
 
 const RX_STAFF = ['pharmacist', 'technician', 'branch_manager', 'cashier'];
 
@@ -112,11 +113,13 @@ router.post('/prescriptions/:id/dispense', branch(), roles('pharmacist'), writab
     discount: 0, payments: req.body.payments || 'auto', allowNoShift: true,
   });
   await audit(req, 'rx.dispense', 'Prescription', rx._id, `Dispensed ${rx.rxNo} (sale ${sale.receiptNo})`);
+  // Dose reminders from the directions, unless the pharmacist unticked them.
+  const reminders = req.body.reminders === false ? [] : await plansFromDispensing({ rx, lines: sale.items.map((i) => ({ product: i.product, qty: i.qty })), branch: req.branchId, by: req.user.name });
   const labels = sale.items.map((it) => {
     const line = rx.items.find((i) => String(i.product) === String(it.product));
     return { patient: rx.patientName, drug: it.name, directions: [line?.dose, line?.frequency, line?.duration].filter(Boolean).join(', '), qty: it.qty, batch: it.lots.map((l) => l.batchNo).join(', '), expiry: it.lots[0]?.expiry, date: new Date(), rxNo: rx.rxNo };
   });
-  res.json({ sale, labels, prescription: await Prescription.findById(rx._id, '-image') });
+  res.json({ sale, labels, reminders, prescription: await Prescription.findById(rx._id, '-image') });
 }));
 
 // Prescriptions due for refund reminders (FR-RX-10).

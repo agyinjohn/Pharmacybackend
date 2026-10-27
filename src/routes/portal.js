@@ -65,6 +65,28 @@ router.post('/me/erasure-request', customer, wrap(async (req, res) => {
   res.json({ ok: true, message: 'Request received. The pharmacy will confirm what can be erased; records it must legally keep (such as controlled-drug prescriptions) stay for the required period.' });
 }));
 
+// Patients see and control their medication reminders (CP-NOT-02: opt-out).
+router.get('/me/reminders', customer, wrap(async (req, res) => {
+  const { ReminderPlan } = require('../models');
+  res.json(await ReminderPlan.find({ customer: req.customer._id, active: true }).sort('-createdAt'));
+}));
+router.patch('/me/reminders/:id', customer, wrap(async (req, res) => {
+  const { ReminderPlan } = require('../models');
+  const { validTime } = require('../services/reminders');
+  const plan = await ReminderPlan.findOne({ _id: req.params.id, customer: req.customer._id });
+  if (!plan) throw notFound();
+  if (req.body.paused !== undefined) plan.paused = !!req.body.paused;
+  if (req.body.stop) { plan.active = false; plan.stoppedBy = 'customer'; }
+  if (req.body.times) {
+    const t = [...new Set(req.body.times.map(String))].sort();
+    if (!t.length || t.length > 8 || !t.every(validTime)) throw bad('Times must be HH:MM, e.g. 08:00');
+    plan.times = t;
+  }
+  await plan.save();
+  await audit(req, 'reminder.customer_update', 'ReminderPlan', plan._id, `Customer ${plan.active ? (plan.paused ? 'paused' : 'changed') : 'stopped'} reminders for ${plan.medicine}`);
+  res.json(plan);
+}));
+
 router.get('/me/prescriptions', customer, wrap(async (req, res) => {
   res.json(await Prescription.find({ customer: req.customer._id }, '-image').sort('-createdAt').limit(50));
 }));
