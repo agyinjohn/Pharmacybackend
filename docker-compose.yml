@@ -1,0 +1,35 @@
+# Local stack: MongoDB + API (+ the web app if the Pharmacy repo is checked out next to this one).
+#   docker compose up --build            # API + Mongo
+#   docker compose --profile web up --build
+#   docker compose run --rm api node src/seed.js
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes: [mongo-data:/data/db]
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      retries: 5
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      mongo: { condition: service_healthy }
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/pharmacy_saas
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      PUBLIC_WEB_URL: ${PUBLIC_WEB_URL:-http://localhost:3000}
+      PAYSTACK_SECRET_KEY: ${PAYSTACK_SECRET_KEY:-}
+      SMS_PROVIDER: ${SMS_PROVIDER:-log}
+    ports: ["4000:4000"]
+  web:
+    profiles: [web]
+    build:
+      context: ../Pharmacy
+      args: { NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000/api} }
+    depends_on: [api]
+    ports: ["3000:3000"]
+volumes:
+  mongo-data:

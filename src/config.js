@@ -12,6 +12,7 @@ module.exports = {
   mongoUri: process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/pharmacy_saas',
   jwtSecret: process.env.JWT_SECRET || 'dev-secret-change-me',
   corsOrigins: (process.env.CORS_ORIGIN || 'http://localhost:3000').split(',').map((s) => s.trim()),
+  webUrl: process.env.PUBLIC_WEB_URL || 'http://localhost:3000',
   otpDemoCode: process.env.OTP_DEMO_CODE || '123456',
   nearExpiryDays: [90, 60, 30],
 };

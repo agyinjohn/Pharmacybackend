@@ -264,10 +264,14 @@ const Sale = mongoose.model('Sale', new Schema({
   shift: ref('Shift'),
   prescription: ref('Prescription'),
   channel: { type: String, enum: ['pos', 'online'], default: 'pos' },
+  clientId: String, // idempotency key for sales made offline and synced later
+  offlineAt: Date,
+  flags: [String],  // problems found when an offline sale was synced (stock shortfall, etc.)
   items: [{
     product: ref('Product', { required: true }),
     name: String,
     qty: Number,
+    shortfall: Number,
     unitPrice: Number,
     taxRate: Number,
     tax: Number,
@@ -283,7 +287,7 @@ const Sale = mongoose.model('Sale', new Schema({
   changeGiven: { type: Number, default: 0 },
   status: { type: String, enum: ['completed', 'held', 'refunded', 'partially_refunded'], default: 'completed' },
   refunds: [{ at: Date, by: ref('User'), reason: String, amount: Number, lines: [{ product: ref('Product'), qty: Number }] }],
-}, opts).index({ branch: 1, createdAt: -1 }));
+}, opts).index({ branch: 1, createdAt: -1 }).index({ org: 1, clientId: 1 }, { unique: true, partialFilterExpression: { clientId: { $type: 'string' } } }));
 
 /* ---------- Online orders ---------- */
 const Order = mongoose.model('Order', new Schema({
@@ -308,11 +312,12 @@ const Order = mongoose.model('Order', new Schema({
   subtotal: Number,
   tax: Number,
   total: Number,
-  payment: { method: { type: String, enum: ['momo', 'card', 'cod'] }, status: { type: String, enum: ['pending', 'paid', 'refunded'], default: 'pending' }, reference: String },
+  payment: { method: { type: String, enum: ['momo', 'card', 'cod'] }, status: { type: String, enum: ['pending', 'paid', 'refunded'], default: 'pending' }, reference: String, provider: String, authUrl: String },
   status: { type: String, enum: ['pending_review', 'received', 'approved', 'packed', 'out_for_delivery', 'delivered', 'failed', 'cancelled', 'rejected'], default: 'received' },
   stockReserved: { type: Boolean, default: false },
+  rxClaimed: { type: Boolean, default: false },
   reservedUntil: Date,
-  rider: { user: ref('User'), name: String, phone: String, external: Boolean },
+  rider: { user: ref('User'), name: String, phone: String, external: Boolean, trackingUrl: String, location: { lat: Number, lng: Number, at: Date } },
   deliveryCode: String,
   proof: { recipient: String, at: Date, signature: String },
   history: [{ status: String, at: { type: Date, default: Date.now }, by: String, note: String }],
@@ -339,8 +344,19 @@ const Notification = mongoose.model('Notification', new Schema({
   channel: { type: String, enum: ['sms', 'email', 'push'], default: 'sms' },
   event: String,
   message: String,
-  status: { type: String, enum: ['sent', 'skipped'], default: 'sent' },
+  status: { type: String, enum: ['sent', 'skipped', 'failed'], default: 'sent' },
   skippedReason: String,
+}, { timestamps: { createdAt: true, updatedAt: false } }));
+
+// Customer account ledger: credit sales are charges, money received are payments.
+const Ledger = mongoose.model('Ledger', new Schema({
+  org: ref('Organization', { required: true, index: true }),
+  customer: ref('Customer', { required: true, index: true }),
+  type: { type: String, enum: ['charge', 'payment'], required: true },
+  amount: { type: Number, required: true },
+  ref: String,
+  sale: ref('Sale'),
+  by: ref('User'),
 }, { timestamps: { createdAt: true, updatedAt: false } }));
 
 /* ---------- Audit and leads ---------- */
@@ -373,5 +389,5 @@ const Lead = mongoose.model('Lead', new Schema({
 module.exports = {
   ROLES, LEGAL,
   Organization, Branch, User, Product, Batch, Supplier, PurchaseOrder, StockTransfer,
-  Customer, Prescription, ControlledRegister, Shift, Sale, Order, AuditLog, Lead, SupplierReturn, Notification,
+  Customer, Prescription, ControlledRegister, Shift, Sale, Order, AuditLog, Lead, SupplierReturn, Notification, Ledger,
 };

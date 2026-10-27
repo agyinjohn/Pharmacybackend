@@ -10,7 +10,7 @@ const app = express();
 app.set('trust proxy', 1);
 app.use(helmet());
 app.use(cors({ origin: config.corsOrigins, allowedHeaders: ['Content-Type', 'Authorization', 'x-branch-id'] }));
-app.use(express.json({ limit: '8mb' })); // prescription photos arrive as data URLs
+app.use(express.json({ limit: '8mb', verify: (req, res, buf) => { req.rawBody = buf; } })); // photos arrive as data URLs; raw body is kept to check webhook signatures
 if (!config.isProd) app.use(morgan('dev'));
 
 app.get('/api/health', (req, res) => res.json({ ok: true, time: new Date() }));

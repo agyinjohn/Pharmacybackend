@@ -6,6 +6,10 @@ const { audit } = require('../services/audit');
 const { priceFor, oid } = require('../services/stock');
 const { otpDemoCode, isProd } = require('../config');
 const { cancelOrder } = require('./orders');
+const payments = require('../services/payments');
+const { notify } = require('../services/notify');
+const { deductFefo, restore } = require('../services/stock');
+const { webUrl } = require('../config');
 
 // Public customer portal API. Everything is scoped by pharmacy slug; controlled drugs are never exposed (REG-14).
 const loadOrg = wrap(async (req, res, next) => {
@@ -210,17 +214,70 @@ router.post('/:slug/orders', loadOrg, customer, wrap(async (req, res) => {
 
   const subtotal = round2(lines.reduce((s, l) => s + priceFor(l.p, b._id) * l.qty, 0));
   const tax = round2(lines.reduce((s, l) => s + priceFor(l.p, b._id) * l.qty * l.p.taxRate, 0));
-  const order = await Order.create({
+  const total = round2(subtotal + tax + deliveryFee);
+  const live = method !== 'cod' && payments.enabled(); // real provider: hold stock until paid
+  const reference = seq('PAY');
+  const status = rxLines.length ? 'pending_review' : 'received';
+  const order = new Order({
     org: req.orgId, branch: b._id, orderNo: seq('ON'), customer: req.customer._id, prescription: prescription?._id, fulfilment, address: addr,
-    deliveryFee, etaMins, subtotal, tax, total: round2(subtotal + tax + deliveryFee),
-    // Payment is simulated here; production swaps in the mobile-money / card provider and never stores card data (CP-PAY-01).
-    payment: method === 'cod' ? { method, status: 'pending' } : { method, status: 'paid', reference: seq('PAY') },
-    status: rxLines.length ? 'pending_review' : 'received',
+    deliveryFee, etaMins, subtotal, tax, total,
+    // Without a provider key payment is simulated as paid; production never stores card data (CP-PAY-01).
+    payment: method === 'cod' ? { method, status: 'pending' } : live ? { method, status: 'pending', reference, provider: 'paystack' } : { method, status: 'paid', reference },
+    status,
     items: lines.map((l) => ({ product: l.p._id, name: `${l.p.brand}${l.p.strength ? ' ' + l.p.strength : ''}`, qty: l.qty, unitPrice: priceFor(l.p, b._id), taxRate: l.p.taxRate, requiresRx: l.p.legalStatus === 'prescription_only' })),
-    history: [{ status: rxLines.length ? 'pending_review' : 'received', by: 'customer', note }],
+    history: [{ status, by: 'customer', note }],
   });
+  let paymentUrl;
+  if (live) {
+    const held = [];
+    try {
+      for (const it of order.items) {
+        const lots = await deductFefo({ org: req.orgId, branch: b._id, product: it.product, qty: it.qty, label: it.name });
+        held.push(...lots);
+        it.lots = lots.map(({ batch, batchNo, expiry, qty }) => ({ batch, batchNo, expiry, qty }));
+      }
+      order.stockReserved = true;
+      order.reservedUntil = new Date(Date.now() + (req.org.settings.reservationMinutes || 60) * 60000);
+      const init = await payments.initialize({ email: req.customer.email || `${req.customer.phone.replace(/\D/g, '')}@customers.pharmaone.app`, amount: total, reference, method, callbackUrl: `${webUrl}/shop/${req.org.slug}/orders?ref=${reference}` });
+      order.payment.authUrl = init.authUrl; paymentUrl = init.authUrl;
+    } catch (e) {
+      await restore(held);
+      throw e.status ? e : new HttpError(502, `Could not start payment: ${e.message}`);
+    }
+  }
+  await order.save();
   await audit(req, 'order.create', 'Order', order._id, `Online order ${order.orderNo} placed (${order.total})`);
-  res.status(201).json(order);
+  res.status(201).json({ ...order.toObject(), paymentUrl });
+}));
+
+// Customer returns from the payment page; confirm with the provider (the webhook may also have done it).
+router.post('/orders/:id/verify-payment', customer, wrap(async (req, res) => {
+  const o = await Order.findOne({ _id: req.params.id, customer: req.customer._id });
+  if (!o) throw notFound();
+  if (o.payment.status === 'pending' && o.payment.provider === 'paystack') {
+    const r = await payments.verify(o.payment.reference);
+    if (r.paid) await markPaid(o);
+  }
+  res.json(await Order.findById(o._id).populate('branch', 'name phone address'));
+}));
+
+async function markPaid(o) {
+  if (o.payment.status !== 'pending') return;
+  o.payment.status = 'paid'; o.reservedUntil = undefined;
+  o.history.push({ status: o.status, by: 'system', note: 'Payment received' });
+  await o.save();
+  const c = await Customer.findById(o.customer);
+  await notify(c, `Payment received for order ${o.orderNo}. Thank you!`);
+}
+
+// Provider webhook: signature-checked, no login.
+router.post('/webhooks/paystack', wrap(async (req, res) => {
+  if (!payments.validWebhook(req.rawBody || '', req.headers['x-paystack-signature'])) throw new HttpError(401, 'Bad signature');
+  if (req.body.event === 'charge.success') {
+    const o = await Order.findOne({ 'payment.reference': req.body.data?.reference });
+    if (o) await markPaid(o);
+  }
+  res.json({ ok: true });
 }));
 
 module.exports = router;

@@ -1,6 +1,6 @@
-const { Product, Prescription, Sale, Shift, Customer } = require('../models');
+const { Product, Prescription, Sale, Shift, Customer, Ledger } = require('../models');
 const { bad, forbidden, conflict, seq, round2 } = require('../utils/http');
-const { priceFor, deductFefo, restore, registerEntry } = require('./stock');
+const { priceFor, deductFefo, restore, registerEntry, available } = require('./stock');
 
 const DISCOUNT_LIMIT = { cashier: 0.05, pharmacist: 0.1, branch_manager: 0.3, owner: 1 };
 const RX_LEVELS = ['prescription_only', 'controlled'];
@@ -38,8 +38,13 @@ const refreshRxStatus = async (rxId) => {
   if (next !== rx.status) { rx.status = next; await rx.save(); }
 };
 
-const completeSale = async ({ user, org, branch, items, customerId, discount = 0, payments = [], prescriptionId, channel = 'pos', allowNoShift = false }) => {
+const completeSale = async ({ user, org, branch, items, customerId, discount = 0, payments = [], prescriptionId, channel = 'pos', allowNoShift = false, clientId, offlineAt, allowShortfall = false }) => {
   if (!items?.length) throw bad('Add at least one item');
+  if (clientId) {
+    const dup = await Sale.findOne({ org, clientId });
+    if (dup) return dup; // already synced: idempotent
+  }
+  const flags = [];
   const products = await Product.find({ _id: { $in: items.map((i) => i.product) }, org, active: true });
   const byId = new Map(products.map((p) => [String(p._id), p]));
 
@@ -86,14 +91,22 @@ const completeSale = async ({ user, org, branch, items, customerId, discount = 0
         await claimRx(rx, p._id, qty);
         claimed.push({ product: p._id, qty });
       }
-      const lots = await deductFefo({ org, branch, product: p._id, qty, label: p.brand });
+      // Offline sales are already handed over, so we record what stock we have and flag the rest
+      // for review instead of failing the sync.
+      let takeQty = qty; let shortfall = 0;
+      if (allowShortfall) {
+        const have = await available(org, branch, p._id);
+        takeQty = Math.min(qty, have); shortfall = qty - takeQty;
+        if (shortfall) flags.push(`Stock shortfall on ${p.brand}: sold ${qty}, system had ${have}`);
+      }
+      const lots = takeQty > 0 ? await deductFefo({ org, branch, product: p._id, qty: takeQty, label: p.brand }) : [];
       taken.push(...lots);
       const unitPrice = priceFor(p, branch);
       const base = unitPrice * qty;
       saleItems.push({
-        product: p._id, name: `${p.brand}${p.strength ? ' ' + p.strength : ''}`, qty, unitPrice,
+        product: p._id, name: `${p.brand}${p.strength ? ' ' + p.strength : ''}`, qty, shortfall, unitPrice,
         taxRate: p.taxRate, tax: round2(base * p.taxRate), lineTotal: round2(base),
-        cost: round2(lots.reduce((s, l) => s + l.cost * l.qty, 0) / qty),
+        cost: lots.length ? round2(lots.reduce((s, l) => s + l.cost * l.qty, 0) / takeQty) : p.cost,
         lots: lots.map(({ batch, batchNo, expiry, qty: q }) => ({ batch, batchNo, expiry, qty: q })),
       });
     }
@@ -126,12 +139,16 @@ const completeSale = async ({ user, org, branch, items, customerId, discount = 0
 
     const sale = await Sale.create({
       org, branch, receiptNo: seq('R'), cashier: user._id, customer: customer?._id, shift: shift?._id,
-      prescription: rx?._id, channel, items: saleItems, subtotal, discount: disc, tax, total,
+      prescription: rx?._id, channel, clientId, offlineAt, flags, items: saleItems, subtotal, discount: disc, tax, total,
       payments: payments.map((p) => ({ method: p.method, amount: Number(p.amount), reference: p.reference })),
       changeGiven: change,
+      ...(offlineAt && { createdAt: new Date(offlineAt) }),
     });
 
-    if (creditAmount > 0) await Customer.updateOne({ _id: customer._id }, { $inc: { balance: creditAmount } });
+    if (creditAmount > 0) {
+      await Customer.updateOne({ _id: customer._id }, { $inc: { balance: creditAmount } });
+      await Ledger.create({ org, customer: customer._id, type: 'charge', amount: creditAmount, ref: sale.receiptNo, sale: sale._id, by: user._id });
+    }
     if (customer) await Customer.updateOne({ _id: customer._id }, { $inc: { loyaltyPoints: Math.floor(total / 10) } });
     if (shift && cashPaid) await Shift.updateOne({ _id: shift._id }, { $inc: { cashSales: round2(cashPaid - change) } });
 

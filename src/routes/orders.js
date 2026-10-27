@@ -6,6 +6,16 @@ const { audit } = require('../services/audit');
 const { notify } = require('../services/notify');
 const { deductFefo, restore } = require('../services/stock');
 const { claimRx, unclaimRx, refreshRxStatus } = require('../services/sales');
+const payments = require('../services/payments');
+
+// Money back to the customer on the original method (CP-PAY-03). Provider failures are recorded, not thrown.
+const refundPayment = async (o) => {
+  if (o.payment.status !== 'paid') return;
+  o.payment.status = 'refunded';
+  if (o.payment.provider === 'paystack') {
+    try { await payments.refund(o.payment.reference); } catch (e) { o.history.push({ status: o.status, by: 'system', note: `Automatic refund failed (${e.message}); refund manually` }); }
+  }
+};
 
 const ORDER_STAFF = ['pharmacist', 'technician', 'branch_manager', 'dispatcher'];
 
@@ -48,6 +58,7 @@ router.get('/orders/:id', roles(...ORDER_STAFF), wrap(async (req, res) => {
 router.post('/orders/:id/approve', roles('pharmacist', 'technician', 'branch_manager'), writable, wrap(async (req, res) => {
   const o = await loadOrder(req);
   if (!['received', 'pending_review'].includes(o.status)) throw conflict(`Order is ${o.status}`);
+  if (o.payment.status === 'pending' && o.payment.method !== 'cod') throw conflict('Waiting for the customer to complete payment');
   const needsRx = o.items.some((i) => i.requiresRx);
   let rx = null;
   if (needsRx) {
@@ -59,6 +70,7 @@ router.post('/orders/:id/approve', roles('pharmacist', 'technician', 'branch_man
   try {
     for (const it of o.items) {
       if (it.requiresRx) { await claimRx(rx, it.product, it.qty); claimed.push(it); }
+      if (o.stockReserved) continue; // already reserved when the order was placed (CP-ORD-06)
       const lots = await deductFefo({ org: req.orgId, branch: o.branch, product: it.product, qty: it.qty, label: it.name });
       taken.push(...lots);
       it.lots = lots.map(({ batch, batchNo, expiry, qty }) => ({ batch, batchNo, expiry, qty }));
@@ -69,6 +81,7 @@ router.post('/orders/:id/approve', roles('pharmacist', 'technician', 'branch_man
     throw e;
   }
   if (rx) await refreshRxStatus(rx._id);
+  if (rx) o.rxClaimed = true;
   o.stockReserved = true;
   step(o, 'approved', req);
   await o.save();
@@ -82,7 +95,7 @@ router.post('/orders/:id/reject', roles('pharmacist', 'branch_manager'), writabl
   const o = await loadOrder(req);
   if (!['received', 'pending_review'].includes(o.status)) throw conflict(`Order is ${o.status}`);
   o.reviewNote = req.body.reason;
-  if (o.payment.status === 'paid') o.payment.status = 'refunded'; // CP-PAY-03
+  await refundPayment(o); // CP-PAY-03
   step(o, 'rejected', req, req.body.reason);
   await o.save();
   if (o.prescription) await Prescription.updateOne({ _id: o.prescription, status: 'pending' }, { status: 'rejected', rejectedReason: req.body.reason });
@@ -128,12 +141,12 @@ router.post('/orders/:id/dispatch', roles('dispatcher', 'branch_manager', 'pharm
   const o = await loadOrder(req);
   if (o.status !== 'packed') throw conflict('Order must be packed first');
   if (o.fulfilment !== 'delivery') throw conflict('Pickup orders are handed over in store');
-  const { riderId, courierName, courierPhone } = req.body;
+  const { riderId, courierName, courierPhone, trackingUrl } = req.body;
   if (riderId) {
     const r = await User.findOne({ _id: riderId, org: req.orgId, role: 'dispatcher', active: true });
     if (!r) throw bad('Rider not found');
     o.rider = { user: r._id, name: r.name, phone: r.phone, external: false };
-  } else if (courierName) o.rider = { name: courierName, phone: courierPhone, external: true };
+  } else if (courierName) o.rider = { name: courierName, phone: courierPhone, external: true, trackingUrl };
   else throw bad('Choose a rider or enter a courier');
   o.deliveryCode = String(Math.floor(1000 + Math.random() * 9000));
   step(o, 'out_for_delivery', req, `Assigned to ${o.rider.name}`);
@@ -141,6 +154,17 @@ router.post('/orders/:id/dispatch', roles('dispatcher', 'branch_manager', 'pharm
   await notify(o.customer, `Order ${o.orderNo} is out for delivery with ${o.rider.name}. Give code ${o.deliveryCode} on arrival.`);
   await audit(req, 'order.dispatch', 'Order', o._id, `Order ${o.orderNo} dispatched with ${o.rider.name}`);
   res.json(o);
+}));
+
+// Live tracking (CP-DEL-05): the assigned rider's phone posts its position while out for delivery.
+router.post('/orders/:id/location', roles('dispatcher'), wrap(async (req, res) => {
+  const o = await Order.findOne({ _id: req.params.id, org: req.orgId, 'rider.user': req.user._id, status: 'out_for_delivery' });
+  if (!o) throw notFound('No active delivery with that id assigned to you');
+  const { lat, lng } = req.body;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) throw bad('Invalid position');
+  o.rider.location = { lat, lng, at: new Date() };
+  await o.save();
+  res.json({ ok: true });
 }));
 
 // Riders see only their own tasks.
@@ -205,15 +229,28 @@ async function cancelOrder(o, by, reason) {
   if (o.stockReserved) {
     await restore(o.items.flatMap((i) => i.lots.map((l) => ({ batch: l.batch, qty: l.qty }))));
     o.stockReserved = false;
-    for (const i of o.items.filter((x) => x.requiresRx)) await unclaimRx({ _id: o.prescription }, i.product, i.qty);
-    if (o.prescription) await refreshRxStatus(o.prescription);
+    if (o.rxClaimed) {
+      for (const i of o.items.filter((x) => x.requiresRx)) await unclaimRx({ _id: o.prescription }, i.product, i.qty);
+      o.rxClaimed = false;
+      await refreshRxStatus(o.prescription);
+    }
   }
-  if (o.payment.status === 'paid') o.payment.status = 'refunded';
+  await refundPayment(o);
   o.status = 'cancelled';
   o.history.push({ status: 'cancelled', by, note: reason });
   await o.save();
   return o;
 }
 router.cancelOrder = cancelOrder;
+
+// Releases stock held for online orders whose payment never arrived (CP-ORD-06).
+const releaseExpiredReservations = async () => {
+  const stale = await Order.find({ stockReserved: true, status: { $in: ['received', 'pending_review'] }, 'payment.status': 'pending', 'payment.method': { $ne: 'cod' }, reservedUntil: { $lt: new Date() } }).populate('customer');
+  for (const o of stale) {
+    try { await cancelOrder(o, 'system', 'Payment not completed in time'); await notify(o.customer, `Order ${o.orderNo} was cancelled because payment was not completed in time.`); } catch (e) { console.error('reservation release failed', o.orderNo, e.message); }
+  }
+  return stale.length;
+};
+router.releaseExpiredReservations = releaseExpiredReservations;
 
 module.exports = router;

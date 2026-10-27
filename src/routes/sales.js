@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { Sale, Shift, Customer, Product } = require('../models');
+const { Sale, Shift, Customer, Product, Ledger } = require('../models');
 const { wrap, bad, notFound, conflict, escapeRegex, round2, seq } = require('../utils/http');
 const { staff, roles, branch, writable } = require('../middleware/auth');
 const { audit } = require('../services/audit');
@@ -23,6 +23,39 @@ router.get('/pos/lookup', branch(), wrap(async (req, res) => {
   ]);
   const m = new Map(rows.map((r) => [String(r._id), r]));
   res.json(products.map((p) => ({ ...p.toObject(), price: priceFor(p, req.branchId), stock: m.get(String(p._id))?.qty || 0, nextExpiry: m.get(String(p._id))?.nextExpiry })));
+}));
+
+// Full sellable catalogue snapshot for offline mode: price and stock at this branch, per product.
+router.get('/pos/catalog', branch(), roles(...POS), wrap(async (req, res) => {
+  const products = await Product.find({ org: req.orgId, active: true, legalStatus: { $in: ['otc', 'pharmacy_only'] } }).limit(5000);
+  const { Batch } = require('../models');
+  const { oid } = require('../services/stock');
+  const rows = await Batch.aggregate([
+    { $match: { org: oid(req.orgId), branch: oid(req.branchId), status: 'active', qty: { $gt: 0 }, expiry: { $gt: new Date() } } },
+    { $group: { _id: '$product', qty: { $sum: '$qty' }, nextExpiry: { $min: '$expiry' } } },
+  ]);
+  const m = new Map(rows.map((r) => [String(r._id), r]));
+  res.json({ at: new Date(), products: products.map((p) => ({ _id: p._id, brand: p.brand, generic: p.generic, strength: p.strength, barcode: p.barcode, legalStatus: p.legalStatus, taxRate: p.taxRate, price: priceFor(p, req.branchId), stock: m.get(String(p._id))?.qty || 0, nextExpiry: m.get(String(p._id))?.nextExpiry })) });
+}));
+
+// Upload sales made while offline. Each one is processed on its own so a bad sale does not block
+// the rest; duplicates are ignored by clientId. Shortfalls are flagged, not rejected.
+router.post('/sales/sync', branch(), roles(...POS), writable, wrap(async (req, res) => {
+  const list = Array.isArray(req.body.sales) ? req.body.sales : [];
+  if (list.length > 200) throw bad('Sync at most 200 sales at a time');
+  const results = [];
+  for (const s of list) {
+    try {
+      if (!s.clientId) throw bad('Missing clientId');
+      const sale = await completeSale({ user: req.user, org: req.orgId, branch: req.branchId, items: s.items, customerId: s.customer, discount: s.discount, payments: s.payments, clientId: s.clientId, offlineAt: s.createdAt, allowShortfall: true, allowNoShift: true });
+      results.push({ clientId: s.clientId, ok: true, receiptNo: sale.receiptNo, flags: sale.flags });
+    } catch (e) {
+      results.push({ clientId: s.clientId, ok: false, error: e.message });
+    }
+  }
+  const flagged = results.filter((r) => r.ok && r.flags?.length).length;
+  await audit(req, 'sale.sync', 'Sale', null, `Synced ${results.filter((r) => r.ok).length}/${list.length} offline sale(s), ${flagged} flagged`);
+  res.json({ results });
 }));
 
 router.post('/sales', branch(), roles(...POS), writable, wrap(async (req, res) => {
@@ -114,6 +147,17 @@ router.get('/customers/:id', wrap(async (req, res) => {
   const { Prescription } = require('../models');
   res.json({ customer: c, prescriptions: await Prescription.find({ org: req.orgId, customer: c._id }).sort('-createdAt').limit(20) });
 }));
+// Account statement: charges and payments with a running balance (FR-CUS-03).
+router.get('/customers/:id/statement', roles('accountant', 'cashier', 'branch_manager', 'auditor'), wrap(async (req, res) => {
+  const c = await Customer.findOne({ _id: req.params.id, org: req.orgId }, '-otp');
+  if (!c) throw notFound();
+  const entries = await Ledger.find({ org: req.orgId, customer: c._id }).sort({ createdAt: 1, _id: 1 });
+  let bal = 0;
+  const rows = entries.map((e) => { bal = round2(bal + (e.type === 'charge' ? e.amount : -e.amount)); return { at: e.createdAt, type: e.type, ref: e.ref, amount: e.amount, balance: bal }; });
+  await audit(req, 'customer.statement', 'Customer', c._id, `Viewed account statement for ${c.name}`);
+  res.json({ customer: { name: c.name, phone: c.phone, creditLimit: c.creditLimit, balance: c.balance }, rows });
+}));
+
 router.post('/customers', writable, wrap(async (req, res) => {
   const { name, phone, email, allergies, conditions, addresses, consent, creditLimit } = req.body;
   if (!name || !phone) throw bad('Name and phone are required');
@@ -141,6 +185,7 @@ router.post('/customers/:id/payments', roles('accountant', 'cashier', 'branch_ma
   if (!(amount > 0)) throw bad('Enter an amount');
   const c = await Customer.findOneAndUpdate({ _id: req.params.id, org: req.orgId }, { $inc: { balance: -amount } }, { new: true });
   if (!c) throw notFound();
+  await Ledger.create({ org: req.orgId, customer: c._id, type: 'payment', amount, ref: req.body.reference, by: req.user._id });
   await audit(req, 'customer.payment', 'Customer', c._id, `Received ${amount} on account from ${c.name}`);
   res.json(c);
 }));

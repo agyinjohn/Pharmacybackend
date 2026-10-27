@@ -125,6 +125,8 @@ const CATALOGUE = [
     { org: org._id, name: 'Mohammed Issah', phone: '+233271234567', conditions: ['Diabetes'], consent: { communications: false, healthData: true, at: day(-10) } },
   ]);
 
+  await M.Ledger.create({ org: org._id, customer: customers[2]._id, type: 'charge', amount: 1350, ref: 'Opening balance', by: owner._id });
+
   // Sales history for dashboards (stock is not touched; this is back-dated reporting data).
   const sellable = products.filter((p) => p.legalStatus !== 'controlled' && p.legalStatus !== 'prescription_only');
   const cashiers = [owner, mgr, pharm];
