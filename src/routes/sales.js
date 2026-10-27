@@ -151,7 +151,11 @@ router.get('/customers/:id', wrap(async (req, res) => {
   if (!c) throw notFound();
   await audit(req, 'customer.view', 'Customer', c._id, `Viewed customer record ${c.name}`);
   const { Prescription } = require('../models');
-  res.json({ customer: c, prescriptions: await Prescription.find({ org: req.orgId, customer: c._id }).sort('-createdAt').limit(20) });
+  const [prescriptions, purchases] = await Promise.all([
+    Prescription.find({ org: req.orgId, customer: c._id }).sort('-createdAt').limit(20),
+    Sale.find({ org: req.orgId, customer: c._id }, 'receiptNo total createdAt channel items.name items.qty status').populate('branch', 'name').sort('-createdAt').limit(10),
+  ]);
+  res.json({ customer: c, prescriptions, purchases });
 }));
 // Account statement: charges and payments with a running balance (FR-CUS-03).
 router.get('/customers/:id/statement', roles('accountant', 'cashier', 'branch_manager', 'auditor'), wrap(async (req, res) => {
