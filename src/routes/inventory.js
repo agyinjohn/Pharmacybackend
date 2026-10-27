@@ -223,7 +223,7 @@ router.post('/purchase-orders/:id/receive', roles(...INV_ROLES), writable, wrap(
   if (!po) throw notFound();
   if (!['sent', 'approved', 'partial'].includes(po.status)) throw conflict('This order is not open for receiving');
   if (req.user.role !== 'owner' && !req.user.branches.map(String).includes(String(po.branch))) throw conflict('Not your branch');
-  const { lines, invoiceNo } = req.body;
+  const { lines, invoiceNo, invoiceTotal } = req.body;
   if (!lines?.length) throw bad('Nothing to receive');
   let invoiceValue = 0;
   for (const l of lines) {
@@ -242,11 +242,13 @@ router.post('/purchase-orders/:id/receive', roles(...INV_ROLES), writable, wrap(
     item.receivedQty += qty;
     invoiceValue += qty * item.cost;
   }
-  po.receipts.push({ at: new Date(), by: req.user._id, invoiceNo });
+  // Three-way match: supplier invoice total vs what was actually received at PO cost (FR-PUR-03).
+  const mismatch = invoiceTotal !== undefined && invoiceTotal !== '' && Math.abs(Number(invoiceTotal) - invoiceValue) > Math.max(1, invoiceValue * 0.01);
+  po.receipts.push({ at: new Date(), by: req.user._id, invoiceNo, invoiceTotal: invoiceTotal === '' ? undefined : Number(invoiceTotal), receivedValue: round2(invoiceValue), mismatch });
   po.status = po.items.every((i) => i.receivedQty >= i.qty) ? 'received' : 'partial';
   await po.save();
   await Supplier.updateOne({ _id: po.supplier }, { $inc: { balance: round2(invoiceValue) } });
-  await audit(req, 'po.receive', 'PurchaseOrder', po._id, `Received against ${po.poNo}${invoiceNo ? ` (invoice ${invoiceNo})` : ''}`);
+  await audit(req, 'po.receive', 'PurchaseOrder', po._id, `Received against ${po.poNo}${invoiceNo ? ` (invoice ${invoiceNo})` : ''}${mismatch ? ' - INVOICE MISMATCH' : ''}`);
   res.json(po);
 }));
 

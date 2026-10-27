@@ -23,6 +23,8 @@ const Organization = mongoose.model('Organization', new Schema({
     nearExpiryDays: { type: [Number], default: [90, 60, 30] },
     reservationMinutes: { type: Number, default: 60 },
     shareStockAcrossBranches: { type: Boolean, default: true },
+    requireTwoStep: { type: Boolean, default: false },
+    retentionYears: { type: Number, default: 2 },
   },
 }, opts));
 
@@ -57,6 +59,7 @@ const userSchema = new Schema({
   pharmacistLicenseExpiry: Date,
   active: { type: Boolean, default: true },
   lastLoginAt: Date,
+  totp: { secret: { type: String, select: false }, enabled: { type: Boolean, default: false } },
 }, opts);
 userSchema.methods.setPassword = async function (pw) { this.passwordHash = await bcrypt.hash(pw, 10); };
 userSchema.methods.checkPassword = function (pw) { return bcrypt.compare(pw, this.passwordHash); };
@@ -64,7 +67,7 @@ userSchema.methods.isPharmacistInGoodStanding = function () {
   return this.role === 'pharmacist' && !!this.pharmacistRegNo
     && (!this.pharmacistLicenseExpiry || this.pharmacistLicenseExpiry > new Date());
 };
-userSchema.set('toJSON', { transform: (d, r) => { delete r.passwordHash; return r; } });
+userSchema.set('toJSON', { transform: (d, r) => { delete r.passwordHash; if (r.totp) delete r.totp.secret; return r; } });
 const User = mongoose.model('User', userSchema);
 
 /* ---------- Catalogue and stock ---------- */
@@ -135,7 +138,7 @@ const PurchaseOrder = mongoose.model('PurchaseOrder', new Schema({
   status: { type: String, enum: ['draft', 'approved', 'sent', 'partial', 'received', 'cancelled'], default: 'draft' },
   createdBy: ref('User'),
   approvedBy: ref('User'),
-  receipts: [{ at: Date, by: ref('User'), invoiceNo: String }],
+  receipts: [{ at: Date, by: ref('User'), invoiceNo: String, invoiceTotal: Number, receivedValue: Number, mismatch: Boolean }],
 }, opts));
 
 const StockTransfer = mongoose.model('StockTransfer', new Schema({
@@ -172,6 +175,8 @@ const Customer = mongoose.model('Customer', new Schema({
   creditLimit: { type: Number, default: 0 },
   balance: { type: Number, default: 0 },
   otp: { code: String, expiresAt: Date, tries: { type: Number, default: 0 } },
+  erasureRequestedAt: Date,
+  anonymizedAt: Date,
 }, opts).index({ org: 1, phone: 1 }, { unique: true }));
 
 /* ---------- Prescriptions ---------- */
@@ -206,6 +211,7 @@ const Prescription = mongoose.model('Prescription', new Schema({
   notes: [{ at: { type: Date, default: Date.now }, by: ref('User'), type: { type: String, enum: ['counselling', 'intervention', 'decline', 'message'] }, text: String }],
   dispensings: [{ at: Date, by: ref('User'), sale: ref('Sale'), lines: [{ product: ref('Product'), qty: Number, batchNo: String }] }],
   allergyWarnings: [String],
+  lastReminderAt: Date,
 }, opts).index({ org: 1, rxNo: 1 }, { unique: true }));
 
 // Append-only register; entries are corrected by adding a new signed entry, never edited.
@@ -315,6 +321,28 @@ const Order = mongoose.model('Order', new Schema({
   passedFrom: ref('Branch'),
 }, opts).index({ branch: 1, createdAt: -1 }));
 
+const SupplierReturn = mongoose.model('SupplierReturn', new Schema({
+  org: ref('Organization', { required: true, index: true }),
+  branch: ref('Branch', { required: true }),
+  supplier: ref('Supplier', { required: true }),
+  creditNoteNo: { type: String, required: true },
+  items: [{ product: ref('Product'), name: String, batchNo: String, qty: Number, cost: Number }],
+  reason: { type: String, required: true },
+  total: Number,
+  createdBy: ref('User'),
+}, opts));
+
+const Notification = mongoose.model('Notification', new Schema({
+  org: ref('Organization', { index: true }),
+  customer: ref('Customer'),
+  phone: String,
+  channel: { type: String, enum: ['sms', 'email', 'push'], default: 'sms' },
+  event: String,
+  message: String,
+  status: { type: String, enum: ['sent', 'skipped'], default: 'sent' },
+  skippedReason: String,
+}, { timestamps: { createdAt: true, updatedAt: false } }));
+
 /* ---------- Audit and leads ---------- */
 const auditSchema = new Schema({
   org: ref('Organization', { index: true }),
@@ -345,5 +373,5 @@ const Lead = mongoose.model('Lead', new Schema({
 module.exports = {
   ROLES, LEGAL,
   Organization, Branch, User, Product, Batch, Supplier, PurchaseOrder, StockTransfer,
-  Customer, Prescription, ControlledRegister, Shift, Sale, Order, AuditLog, Lead,
+  Customer, Prescription, ControlledRegister, Shift, Sale, Order, AuditLog, Lead, SupplierReturn, Notification,
 };

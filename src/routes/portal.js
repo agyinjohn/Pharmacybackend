@@ -52,6 +52,13 @@ router.get('/me/export', customer, wrap(async (req, res) => {
   res.json({ profile: req.customer, orders, prescriptions });
 }));
 
+router.post('/me/erasure-request', customer, wrap(async (req, res) => {
+  req.customer.erasureRequestedAt = new Date();
+  await req.customer.save();
+  await audit(req, 'privacy.request', 'Customer', req.customer._id, 'Customer asked for their data to be erased');
+  res.json({ ok: true, message: 'Request received. The pharmacy will confirm what can be erased; records it must legally keep (such as controlled-drug prescriptions) stay for the required period.' });
+}));
+
 router.get('/me/prescriptions', customer, wrap(async (req, res) => {
   res.json(await Prescription.find({ customer: req.customer._id }, '-image').sort('-createdAt').limit(50));
 }));

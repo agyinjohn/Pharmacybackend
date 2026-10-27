@@ -184,6 +184,34 @@ router.get('/reports/dispensing', roles('pharmacist', 'branch_manager', 'auditor
   sendRows(req, res, 'dispensing', list.map((r) => ({ rx: r.rxNo, date: r.createdAt, patient: r.patientName, prescriber: r.prescriber.name, status: r.status, controlled: r.hasControlled ? 'yes' : '', verified_by: r.verifiedBy?.name, items: r.items.map((i) => `${i.name} x${i.qty}`).join('; ') })));
 }));
 
+// Health-scheme claims for reconciliation (FR-RX-11): dispensed prescriptions with a scheme and member number.
+router.get('/reports/insurance-claims', roles('pharmacist', 'branch_manager', 'accountant', 'auditor'), wrap(async (req, res) => {
+  const { from, to } = range(req);
+  const list = await Prescription.find({ org: req.orgId, 'insurance.scheme': { $exists: true, $ne: '' }, createdAt: { $gte: from, $lte: to } }, '-image');
+  const sales = await Sale.find({ org: req.orgId, prescription: { $in: list.map((r) => r._id) }, status: { $in: done } }, 'prescription total');
+  const totals = new Map();
+  sales.forEach((x) => totals.set(String(x.prescription), (totals.get(String(x.prescription)) || 0) + x.total));
+  sendRows(req, res, 'insurance-claims', list.map((r) => {
+    const value = round2(totals.get(String(r._id)) || 0);
+    return { rx: r.rxNo, date: r.createdAt, patient: r.patientName, scheme: r.insurance.scheme, member_no: r.insurance.memberNo, dispensed_value: value, copay: r.insurance.copay || 0, claim_amount: round2(Math.max(0, value - (r.insurance.copay || 0))), status: r.status };
+  }));
+}));
+
+// Daily reconciliation of online payments against what the provider should report (CP-PAY-04).
+router.get('/reports/payment-reconciliation', roles('accountant', 'branch_manager', 'auditor'), wrap(async (req, res) => {
+  const ids = await branchScope(req);
+  const { from, to } = range(req);
+  const rows = await Order.aggregate([
+    { $match: { org: oid(req.orgId), branch: { $in: ids }, createdAt: { $gte: from, $lte: to } } },
+    { $group: { _id: { d: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, m: '$payment.method' }, orders: { $sum: 1 },
+      paid: { $sum: { $cond: [{ $eq: ['$payment.status', 'paid'] }, '$total', 0] } },
+      refunded: { $sum: { $cond: [{ $eq: ['$payment.status', 'refunded'] }, '$total', 0] } },
+      pending: { $sum: { $cond: [{ $eq: ['$payment.status', 'pending'] }, '$total', 0] } } } },
+    { $sort: { '_id.d': 1, '_id.m': 1 } },
+  ]);
+  sendRows(req, res, 'payment-reconciliation', rows.map((r) => ({ date: r._id.d, method: r._id.m, orders: r.orders, collected: round2(r.paid), refunded: round2(r.refunded), awaiting_cod: round2(r.pending), net_expected_from_provider: r._id.m === 'cod' ? 0 : round2(r.paid) })));
+}));
+
 /* ---------- Audit log (NFR-02, MB-12) ---------- */
 router.get('/audit', roles('branch_manager', 'auditor'), wrap(async (req, res) => {
   const f = { org: req.orgId };
