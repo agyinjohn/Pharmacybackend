@@ -49,7 +49,7 @@ const refreshRxStatus = async (rxId) => {
   if (next !== rx.status) { rx.status = next; await rx.save(); }
 };
 
-const completeSale = async ({ user, org, branch, items, customerId, discount = 0, payments = [], prescriptionId, channel = 'pos', allowNoShift = false, clientId, offlineAt, allowShortfall = false }) => {
+const completeSale = async ({ user, org, branch, items, customerId, discount = 0, payments = [], prescriptionId, channel = 'pos', allowNoShift = false, clientId, offlineAt, allowShortfall = false, offlineRx = false }) => {
   if (!items?.length) throw bad('Add at least one item');
   if (clientId) {
     const dup = await Sale.findOne({ org, clientId });
@@ -80,7 +80,13 @@ const completeSale = async ({ user, org, branch, items, customerId, discount = 0
     }
     if (!prescriptionId) throw bad('A verified prescription is required for prescription-only and controlled medicines');
     rx = await Prescription.findOne({ _id: prescriptionId, org });
-    if (!rx || !['verified', 'partial'].includes(rx.status)) throw conflict('Prescription is not verified');
+    if (!rx) throw conflict('Prescription not found');
+    if (offlineRx && rxLines.some((l) => l.p.legalStatus === 'controlled')) throw conflict('Controlled drugs cannot be dispensed offline');
+    if (!['verified', 'partial'].includes(rx.status)) {
+      // Dispensed offline from a cached copy: the medicine has already been handed over, so record it and flag it.
+      if (!offlineRx) throw conflict('Prescription is not verified');
+      flags.push(`Prescription ${rx.rxNo} was "${rx.status}" when this offline dispensing synced`);
+    }
     if (rxLines.some((l) => l.p.legalStatus === 'controlled') && !rx.paperOriginalSeen) {
       throw conflict('Controlled drugs need the signed paper original to be sighted and recorded on the prescription');
     }
@@ -100,8 +106,16 @@ const completeSale = async ({ user, org, branch, items, customerId, discount = 0
     const saleItems = [];
     for (const { p, qty } of lines) {
       if (rx && RX_LEVELS.includes(p.legalStatus)) {
-        await claimRx(rx, p._id, qty);
-        claimed.push({ product: p._id, qty });
+        try {
+          if (offlineRx && !['verified', 'partial'].includes(rx.status)) throw conflict('not claimable');
+          await claimRx(rx, p._id, qty);
+          claimed.push({ product: p._id, qty });
+        } catch (e) {
+          if (!offlineRx) throw e;
+          // NFR-05: cross-branch duplicate fills found after sync are flagged for review, not rejected.
+          flags.push(`Possible duplicate or over-fill on ${rx.rxNo}: ${p.brand} x${qty} (${e.message === 'not claimable' ? 'prescription closed' : e.message})`);
+          await Prescription.updateOne({ _id: rx._id, 'items.product': p._id }, { $inc: { 'items.$.dispensedQty': qty } });
+        }
       }
       // Offline sales are already handed over, so we record what stock we have and flag the rest
       // for review instead of failing the sync.

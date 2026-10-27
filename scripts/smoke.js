@@ -103,6 +103,57 @@ const login = async (email) => { const d = ok(await call('/auth/login', { body: 
   await step('catalog snapshot for offline use', async () => { const d = ok(await call('/pos/catalog', { token: cashier.token, branch: acc })); if (!d.products.length) throw new Error('empty'); });
   await step('customer account statement', async () => { const cs = ok(await call('/customers?q=Sunrise', { token: owner.token })); const st = ok(await call(`/customers/${cs[0]._id}/statement`, { token: owner.token })); if (st.rows[0].balance !== 1350) throw new Error('bad balance'); });
 
+
+  // Pharmacist edits an online order before approval (CP-ORD-03)
+  const order2 = await step('place order to edit', async () => ok(await call(`/portal/${slug}/orders`, { token: cust.token, body: { branch: branchObj._id, items: [{ product: otc._id, qty: 3 }], fulfilment: 'pickup', payment: { method: 'momo' } } }), 201));
+  await step('edit needs a reason', async () => { ok(await call(`/orders/${order2._id}/edit`, { token: pharm.token, branch: acc, body: { lines: [{ product: otc._id, qty: 1 }] } }), 400); });
+  await step('pharmacist reduces quantity, refund recorded', async () => {
+    const o = ok(await call(`/orders/${order2._id}/edit`, { token: pharm.token, branch: acc, body: { lines: [{ product: otc._id, qty: 1 }], reason: 'Only one pack per customer' } }));
+    if (o.items[0].qty !== 1 || !(o.payment.refundedAmount > 0) || !(o.total < order2.total)) throw new Error(JSON.stringify({ qty: o.items[0].qty, total: o.total, refunded: o.payment.refundedAmount }));
+  });
+  await step('edit cannot raise a paid total', async () => { ok(await call(`/orders/${order2._id}/edit`, { token: pharm.token, branch: acc, body: { lines: [{ product: otc._id, qty: 5 }], reason: 'x' } }), 409); });
+
+  // Data import with validation report (NFR-12)
+  const rowsC = [{ name: 'Import One', phone: '+233200000101', allergies: 'Sulfa', openingBalance: '25', creditLimit: '100' }, { name: 'Bad Phone', phone: '12' }];
+  await step('import dry run reports errors without writing', async () => { const r = ok(await call('/imports/customers', { token: owner.token, body: { rows: rowsC, dryRun: true } })); if (r.created !== 1 || r.errors.length !== 1 || r.errors[0].row !== 3 || r.committed) throw new Error(JSON.stringify(r)); });
+  await step('import commit writes valid rows and logs a report', async () => { const r = ok(await call('/imports/customers', { token: owner.token, body: { rows: rowsC, fileName: 'customers.csv' } })); if (r.created !== 1) throw new Error(JSON.stringify(r)); const logs = ok(await call('/imports', { token: owner.token })); if (logs[0].type !== 'customers' || logs[0].skipped !== 1) throw new Error('no import log'); });
+  await step('stock import adds a batch', async () => { const r = ok(await call('/imports/stock', { token: owner.token, branch: acc, body: { rows: [{ branchCode: 'ACC', brand: 'Gaviscon', batchNo: 'IMP-1', expiry: '2030-01-31', qty: '7', cost: '30' }] } })); if (r.created !== 1) throw new Error(JSON.stringify(r)); });
+  await step('import template download', async () => { const r = await fetch(`${API}/imports/templates/stock.csv`, { headers: { Authorization: `Bearer ${owner.token}` } }); if (!(await r.text()).startsWith('branchCode,barcode')) throw new Error('bad template'); });
+
+  // Excel export (FR-REP-07)
+  await step('excel export', async () => { const r = await fetch(`${API}/reports/sales?by=day&branch=all&format=xlsx`, { headers: { Authorization: `Bearer ${owner.token}` } }); const b = Buffer.from(await r.arrayBuffer()); if (!(r.headers.get('content-type') || '').includes('spreadsheetml') || b.slice(0, 2).toString() !== 'PK') throw new Error('not xlsx'); });
+
+  // Data protection records (REG-15, 16, 18)
+  await step('record of processing starts pre-filled', async () => { const a = ok(await call('/dp/processing', { token: owner.token })); if (a.length < 3) throw new Error('empty'); });
+  await step('log a security incident', async () => ok(await call('/dp/incidents', { token: owner.token, body: { title: 'Lost tablet at Accra', severity: 'medium', dataAffected: 'Till session' } }), 201));
+  await step('retention preview', async () => { const r = ok(await call('/dp/retention/preview', { token: owner.token })); if (typeof r.notificationsDeleted !== 'number') throw new Error(JSON.stringify(r)); });
+
+  // Promotions and loyalty (FR-POS-04, FR-CUS-04)
+  const vitc = (await lookup('Vitamin C'))[0];
+  await step('create promotion', async () => ok(await call('/promotions', { token: owner.token, body: { name: 'Vitamins 20% off', type: 'percent', value: 20, categories: ['Vitamins'] } }), 201));
+  await step('quote applies promotion', async () => { const q = ok(await call('/pos/quote', { token: owner.token, branch: acc, body: { items: [{ product: vitc._id, qty: 2 }] } })); if (Math.abs(q.promoDiscount - vitc.price * 2 * 0.2) > 0.01) throw new Error(JSON.stringify(q)); });
+  await step('promotion never applies to prescription items', async () => { const q = ok(await call('/pos/quote', { token: owner.token, branch: acc, body: { items: [{ product: amoxil._id, qty: 1 }] } })); if (q.promoDiscount !== 0) throw new Error('rx discounted'); });
+  const kwabena = ok(await call('/customers?q=Kwabena', { token: owner.token }))[0];
+  await step('redeem loyalty points at the till', async () => {
+    const q = ok(await call('/pos/quote', { token: owner.token, branch: acc, body: { items: [{ product: vitc._id, qty: 2 }] } }));
+    const s = ok(await call('/sales', { token: owner.token, branch: acc, body: { items: [{ product: vitc._id, qty: 2 }], customer: kwabena._id, payments: [{ method: 'loyalty', amount: 5 }, { method: 'cash', amount: Math.ceil(q.total) }] } }), 201);
+    if (s.pointsRedeemed !== 50 || !(s.promoDiscount > 0)) throw new Error(JSON.stringify({ r: s.pointsRedeemed, p: s.promoDiscount }));
+    const after = ok(await call(`/customers/${kwabena._id}`, { token: owner.token })).customer.loyaltyPoints;
+    if (after !== kwabena.loyaltyPoints - 50 + s.pointsEarned) throw new Error(`points ${kwabena.loyaltyPoints} -> ${after}`);
+  });
+  await step('cannot redeem more points than held', async () => { ok(await call('/sales', { token: owner.token, branch: acc, body: { items: [{ product: vitc._id, qty: 20 }], customer: kwabena._id, payments: [{ method: 'loyalty', amount: 500 }, { method: 'cash', amount: 2000 }] } }), 409); });
+
+  // Offline receiving and dispensing (NFR-05)
+  await step('offline prescription snapshot', async () => { const r = ok(await call('/offline/rx-snapshot', { token: pharm.token, branch: acc })); if (r.prescriptions.some((x) => x.rxNo === 'RX-DEMO-003')) throw new Error('controlled Rx in offline snapshot'); });
+  const opR = { clientId: `rcv-${Date.now()}`, kind: 'receipt', createdAt: new Date().toISOString(), payload: { items: [{ product: otc._id, batchNo: 'OFF-1', expiry: '2030-06-30', qty: 4, cost: 8 }] } };
+  const opD = { clientId: `dsp-${Date.now()}`, kind: 'dispense', createdAt: new Date().toISOString(), payload: { prescription: rx2._id, items: [{ product: rx2.items[0].product, qty: 10 }] } };
+  await step('offline receipt and duplicate-fill dispensing sync with flags', async () => {
+    const d = ok(await call('/offline/sync', { token: pharm.token, branch: acc, body: { ops: [opR, opD] } }));
+    if (!d.results.every((r) => r.ok)) throw new Error(JSON.stringify(d.results));
+    if (!d.results[1].flags?.length) throw new Error('over-fill not flagged');
+  });
+  await step('offline sync is idempotent', async () => { const d = ok(await call('/offline/sync', { token: pharm.token, branch: acc, body: { ops: [opR] } })); if (!d.results[0].duplicate) throw new Error('reapplied'); });
+
   await step('reorder suggestions', async () => ok(await call('/inventory/reorder-suggestions', { token: owner.token, branch: acc })));
   await step('reports: sales by day', async () => ok(await call('/reports/sales?by=day&branch=all', { token: owner.token })));
   await step('reports: csv export', async () => { const r = await fetch(`${API}/reports/stock?format=csv&branch=all`, { headers: { Authorization: `Bearer ${owner.token}` } }); if (!(r.headers.get('content-type') || '').includes('csv')) throw new Error('not csv'); });

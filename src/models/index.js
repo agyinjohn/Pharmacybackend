@@ -428,6 +428,14 @@ const SecurityIncident = mongoose.model('SecurityIncident', new Schema({
   actions: [{ at: { type: Date, default: Date.now }, by: String, text: String }],
 }, opts));
 
+// Idempotency record for operations queued offline and synced later (NFR-05).
+const OfflineOp = mongoose.model('OfflineOp', new Schema({
+  org: ref('Organization', { required: true }),
+  clientId: { type: String, required: true },
+  kind: String,
+  result: Schema.Types.Mixed,
+}, { timestamps: { createdAt: true, updatedAt: false } }).index({ org: 1, clientId: 1 }, { unique: true }));
+
 const Promotion = mongoose.model('Promotion', new Schema({
   org: ref('Organization', { required: true, index: true }),
   name: { type: String, required: true },
@@ -473,5 +481,5 @@ const Lead = mongoose.model('Lead', new Schema({
 module.exports = {
   ROLES, LEGAL,
   Organization, Branch, User, Product, Batch, Supplier, PurchaseOrder, StockTransfer,
-  Customer, Prescription, ControlledRegister, Shift, Sale, Order, AuditLog, Lead, SupplierReturn, Notification, Ledger, ImportLog, ProcessingActivity, SecurityIncident, Promotion,
+  Customer, Prescription, ControlledRegister, Shift, Sale, Order, AuditLog, Lead, SupplierReturn, Notification, Ledger, ImportLog, ProcessingActivity, SecurityIncident, Promotion, OfflineOp,
 };
