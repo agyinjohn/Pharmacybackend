@@ -3,7 +3,7 @@ const { Sale, Shift, Customer, Product, Ledger } = require('../models');
 const { wrap, bad, notFound, conflict, escapeRegex, round2, seq } = require('../utils/http');
 const { staff, roles, branch, writable } = require('../middleware/auth');
 const { audit } = require('../services/audit');
-const { completeSale, refundSale } = require('../services/sales');
+const { completeSale, refundSale, quoteSale } = require('../services/sales');
 const { priceFor } = require('../services/stock');
 
 const POS = ['cashier', 'pharmacist', 'branch_manager', 'technician'];
@@ -56,6 +56,12 @@ router.post('/sales/sync', branch(), roles(...POS), writable, wrap(async (req, r
   const flagged = results.filter((r) => r.ok && r.flags?.length).length;
   await audit(req, 'sale.sync', 'Sale', null, `Synced ${results.filter((r) => r.ok).length}/${list.length} offline sale(s), ${flagged} flagged`);
   res.json({ results });
+}));
+
+// Live basket pricing with promotions, before charging.
+router.post('/pos/quote', branch(), roles(...POS), wrap(async (req, res) => {
+  if (!Array.isArray(req.body.items) || !req.body.items.length) return res.json({ lines: [], subtotal: 0, promoDiscount: 0, manualDiscount: 0, tax: 0, total: 0 });
+  res.json(await quoteSale({ org: req.orgId, branch: req.branchId, items: req.body.items, discount: req.body.discount }));
 }));
 
 router.post('/sales', branch(), roles(...POS), writable, wrap(async (req, res) => {

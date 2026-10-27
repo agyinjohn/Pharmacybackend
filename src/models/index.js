@@ -24,6 +24,12 @@ const Organization = mongoose.model('Organization', new Schema({
     reservationMinutes: { type: Number, default: 60 },
     shareStockAcrossBranches: { type: Boolean, default: true },
     requireTwoStep: { type: Boolean, default: false },
+    loyalty: {
+      enabled: { type: Boolean, default: true },
+      pointsPerCedi: { type: Number, default: 0.1 },  // 1 point for every GHS 10 spent
+      pointValue: { type: Number, default: 0.1 },     // each point is worth GHS 0.10 when redeemed
+      minRedeemPoints: { type: Number, default: 50 },
+    },
     retentionYears: { type: Number, default: 2 },
     // Per-record retention (REG-16). Sales, audit logs, the controlled-drug register and the account
     // ledger are never purged by the system: they are legal and financial records.
@@ -282,6 +288,9 @@ const Sale = mongoose.model('Sale', new Schema({
     qty: Number,
     shortfall: Number,
     unitPrice: Number,
+    promoDiscount: Number,
+    promoName: String,
+    net: Number,
     taxRate: Number,
     tax: Number,
     lineTotal: Number,
@@ -292,7 +301,10 @@ const Sale = mongoose.model('Sale', new Schema({
   discount: { type: Number, default: 0 },
   tax: Number,
   total: Number,
-  payments: [{ method: { type: String, enum: ['cash', 'momo', 'card', 'credit'] }, amount: Number, reference: String }],
+  payments: [{ method: { type: String, enum: ['cash', 'momo', 'card', 'credit', 'loyalty'] }, amount: Number, reference: String }],
+  promoDiscount: { type: Number, default: 0 },
+  pointsEarned: { type: Number, default: 0 },
+  pointsRedeemed: { type: Number, default: 0 },
   changeGiven: { type: Number, default: 0 },
   status: { type: String, enum: ['completed', 'held', 'refunded', 'partially_refunded'], default: 'completed' },
   refunds: [{ at: Date, by: ref('User'), reason: String, amount: Number, lines: [{ product: ref('Product'), qty: Number }] }],
@@ -311,6 +323,8 @@ const Order = mongoose.model('Order', new Schema({
     unitPrice: Number,
     taxRate: Number,
     requiresRx: Boolean,
+    promoDiscount: Number,
+    promoName: String,
     lots: [{ batch: ref('Batch'), batchNo: String, expiry: Date, qty: Number }],
   }],
   prescription: ref('Prescription'),
@@ -319,6 +333,7 @@ const Order = mongoose.model('Order', new Schema({
   deliveryFee: { type: Number, default: 0 },
   etaMins: Number,
   subtotal: Number,
+  discount: { type: Number, default: 0 },
   tax: Number,
   total: Number,
   payment: { method: { type: String, enum: ['momo', 'card', 'cod'] }, status: { type: String, enum: ['pending', 'paid', 'refunded'], default: 'pending' }, reference: String, provider: String, authUrl: String, refundedAmount: Number },
@@ -413,6 +428,21 @@ const SecurityIncident = mongoose.model('SecurityIncident', new Schema({
   actions: [{ at: { type: Date, default: Date.now }, by: String, text: String }],
 }, opts));
 
+const Promotion = mongoose.model('Promotion', new Schema({
+  org: ref('Organization', { required: true, index: true }),
+  name: { type: String, required: true },
+  type: { type: String, enum: ['percent', 'fixed', 'bogo'], required: true },
+  value: { type: Number, default: 0 },         // percent off, or GHS off each unit
+  buyQty: Number, getQty: Number,              // for buy X get Y free
+  minQty: { type: Number, default: 1 },
+  products: [ref('Product')],
+  categories: [String],
+  branches: [ref('Branch')],                   // empty = all branches
+  channel: { type: String, enum: ['both', 'pos', 'online'], default: 'both' },
+  startsAt: Date, endsAt: Date,
+  active: { type: Boolean, default: true },
+}, opts));
+
 /* ---------- Audit and leads ---------- */
 const auditSchema = new Schema({
   org: ref('Organization', { index: true }),
@@ -443,5 +473,5 @@ const Lead = mongoose.model('Lead', new Schema({
 module.exports = {
   ROLES, LEGAL,
   Organization, Branch, User, Product, Batch, Supplier, PurchaseOrder, StockTransfer,
-  Customer, Prescription, ControlledRegister, Shift, Sale, Order, AuditLog, Lead, SupplierReturn, Notification, Ledger, ImportLog, ProcessingActivity, SecurityIncident,
+  Customer, Prescription, ControlledRegister, Shift, Sale, Order, AuditLog, Lead, SupplierReturn, Notification, Ledger, ImportLog, ProcessingActivity, SecurityIncident, Promotion,
 };

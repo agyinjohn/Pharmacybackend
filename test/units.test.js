@@ -48,3 +48,32 @@ test('branch price and reorder overrides fall back to defaults', () => {
   assert.equal(priceFor(p, 'b1'), 12); assert.equal(priceFor(p, 'b2'), 10);
   assert.equal(reorderFor(p, 'b1'), 20); assert.equal(reorderFor(p, 'b2'), 5);
 });
+
+const { priceBasket } = require('../src/services/pricing');
+const P = (id, extra = {}) => ({ _id: id, category: 'Vitamins', legalStatus: 'otc', taxRate: 0, ...extra });
+
+test('promotions: percent, fixed and buy-x-get-y; best one wins, no stacking', () => {
+  const promos = [
+    { _id: 'a', name: '10% vitamins', type: 'percent', value: 10, categories: ['Vitamins'], active: true },
+    { _id: 'b', name: 'GHS 3 off', type: 'fixed', value: 3, products: ['p1'], active: true },
+    { _id: 'c', name: 'Buy 2 get 1', type: 'bogo', buyQty: 2, getQty: 1, products: ['p2'], active: true },
+  ];
+  const r = priceBasket([{ p: P('p1'), qty: 2, unitPrice: 20 }, { p: P('p2'), qty: 3, unitPrice: 10 }], { promos });
+  assert.equal(r.lines[0].promoName, 'GHS 3 off'); assert.equal(r.lines[0].promoDiscount, 6); // beats 10% (=4)
+  assert.equal(r.lines[1].promoName, 'Buy 2 get 1'); assert.equal(r.lines[1].promoDiscount, 10); // beats 10% (=3)
+  assert.equal(r.subtotal, 70); assert.equal(r.promoDiscount, 16); assert.equal(r.total, 54);
+});
+
+test('promotions never apply to prescription or controlled medicines, or outside their window', () => {
+  const promos = [{ _id: 'a', name: 'All 50%', type: 'percent', value: 50, active: true }, { _id: 'b', name: 'Expired', type: 'percent', value: 90, active: true, endsAt: new Date(Date.now() - 1000) }];
+  const r = priceBasket([{ p: P('rx', { legalStatus: 'prescription_only' }), qty: 1, unitPrice: 40 }, { p: P('o'), qty: 1, unitPrice: 10 }], { promos });
+  assert.equal(r.lines[0].promoDiscount, 0);
+  assert.equal(r.lines[1].promoName, 'All 50%');
+});
+
+test('manual discount is spread across lines and tax is charged on the discounted amount', () => {
+  const r = priceBasket([{ p: P('t', { taxRate: 0.15 }), qty: 1, unitPrice: 100 }, { p: P('n'), qty: 1, unitPrice: 100 }], { manualDiscount: 20 });
+  assert.equal(r.lines[0].manualDiscount, 10); assert.equal(r.lines[0].tax, 13.5);
+  assert.equal(r.tax, 13.5); assert.equal(r.total, 193.5);
+  assert.equal(r.lines[0].net + r.lines[1].net, r.total);
+});

@@ -1,9 +1,20 @@
-const { Product, Prescription, Sale, Shift, Customer, Ledger } = require('../models');
+const { Product, Prescription, Sale, Shift, Customer, Ledger, Promotion, Organization } = require('../models');
+const { priceBasket } = require('./pricing');
 const { bad, forbidden, conflict, seq, round2 } = require('../utils/http');
 const { priceFor, deductFefo, restore, registerEntry, available } = require('./stock');
 
 const DISCOUNT_LIMIT = { cashier: 0.05, pharmacist: 0.1, branch_manager: 0.3, owner: 1 };
 const RX_LEVELS = ['prescription_only', 'controlled'];
+
+const activePromotions = (org) => Promotion.find({ org, active: true });
+
+// Price a basket without touching stock: used by the till to show promotions before charging.
+const quoteSale = async ({ org, branch, items, discount = 0 }) => {
+  const products = await Product.find({ _id: { $in: items.map((i) => i.product) }, org, active: true });
+  const lines = items.map((i) => { const p = products.find((x) => String(x._id) === String(i.product)); return p && { p, qty: Number(i.qty), unitPrice: priceFor(p, branch) }; }).filter(Boolean);
+  const r = priceBasket(lines, { promos: await activePromotions(org), manualDiscount: discount, channel: 'pos', branch });
+  return { ...r, lines: r.lines.map((l) => ({ product: l.p._id, qty: l.qty, unitPrice: l.unitPrice, gross: l.gross, promoDiscount: l.promoDiscount, promoName: l.promoName, tax: l.tax, net: l.net })) };
+};
 
 const maxFor = (rx, item) => item.qty * (1 + (rx.refillsAllowed || 0));
 
@@ -84,6 +95,7 @@ const completeSale = async ({ user, org, branch, items, customerId, discount = 0
 
   const claimed = [];
   const taken = [];
+  let pointsToRedeem = 0; let redeemedFrom = null;
   try {
     const saleItems = [];
     for (const { p, qty } of lines) {
@@ -101,25 +113,25 @@ const completeSale = async ({ user, org, branch, items, customerId, discount = 0
       }
       const lots = takeQty > 0 ? await deductFefo({ org, branch, product: p._id, qty: takeQty, label: p.brand }) : [];
       taken.push(...lots);
-      const unitPrice = priceFor(p, branch);
-      const base = unitPrice * qty;
       saleItems.push({
-        product: p._id, name: `${p.brand}${p.strength ? ' ' + p.strength : ''}`, qty, shortfall, unitPrice,
-        taxRate: p.taxRate, tax: round2(base * p.taxRate), lineTotal: round2(base),
+        product: p._id, name: `${p.brand}${p.strength ? ' ' + p.strength : ''}`, qty, shortfall, unitPrice: priceFor(p, branch), taxRate: p.taxRate,
         cost: lots.length ? round2(lots.reduce((s, l) => s + l.cost * l.qty, 0) / takeQty) : p.cost,
         lots: lots.map(({ batch, batchNo, expiry, qty: q }) => ({ batch, batchNo, expiry, qty: q })),
       });
     }
 
-    const subtotal = round2(saleItems.reduce((s, i) => s + i.lineTotal, 0));
+    // Promotions first, then the cashier's manual discount (limited by role) on what is left.
+    const priced = priceBasket(lines.map(({ p, qty }) => ({ p, qty, unitPrice: priceFor(p, branch) })), { promos: await activePromotions(org), manualDiscount: discount, channel, branch });
     const limit = DISCOUNT_LIMIT[user.role] || 0;
     const disc = round2(Number(discount) || 0);
-    if (disc < 0 || disc > subtotal * limit + 0.001) {
+    if (disc < 0 || disc > priced.afterPromo * limit + 0.001) {
       throw forbidden(`Your role may give at most ${Math.round(limit * 100)}% discount on a sale`);
     }
-    const ratio = subtotal ? (subtotal - disc) / subtotal : 1;
-    const tax = round2(saleItems.reduce((s, i) => s + i.tax, 0) * ratio);
-    const total = round2(subtotal - disc + tax);
+    priced.lines.forEach((pl) => {
+      const it = saleItems.find((x) => String(x.product) === String(pl.p._id));
+      Object.assign(it, { lineTotal: pl.gross, promoDiscount: pl.promoDiscount, promoName: pl.promoName, tax: pl.tax, net: pl.net });
+    });
+    const { subtotal, tax, total } = priced;
 
     // 'auto' settles the exact total in cash (used when a pharmacist dispenses from the queue).
     if (payments === 'auto') payments = [{ method: 'cash', amount: total }];
@@ -137,9 +149,25 @@ const completeSale = async ({ user, org, branch, items, customerId, discount = 0
       if (customer.balance + creditAmount > customer.creditLimit) throw conflict('Credit limit exceeded for this customer');
     }
 
+    // Loyalty redemption (FR-CUS-04): points are taken atomically and given back if the sale fails.
+    const loyalty = (await Organization.findById(org, 'settings.loyalty'))?.settings?.loyalty || {};
+    const loyaltyAmount = round2(payments.filter((p) => p.method === 'loyalty').reduce((s, p) => s + Number(p.amount), 0));
+    if (loyaltyAmount > 0) {
+      if (!loyalty.enabled) throw conflict('Loyalty redemption is switched off');
+      if (!customer) throw bad('Attach the customer to redeem points');
+      if (loyaltyAmount > total + 0.001) throw bad('Points cannot pay more than the sale total');
+      pointsToRedeem = Math.ceil(loyaltyAmount / loyalty.pointValue - 1e-9);
+      if (pointsToRedeem < (loyalty.minRedeemPoints || 0)) throw bad(`At least ${loyalty.minRedeemPoints} points must be redeemed at a time`);
+      const r = await Customer.updateOne({ _id: customer._id, loyaltyPoints: { $gte: pointsToRedeem } }, { $inc: { loyaltyPoints: -pointsToRedeem } });
+      if (r.modifiedCount !== 1) { pointsToRedeem = 0; throw conflict(`${customer.name} does not have enough points`); }
+      redeemedFrom = customer._id;
+    }
+    const pointsEarned = customer && loyalty.enabled !== false ? Math.floor((total - loyaltyAmount) * (loyalty.pointsPerCedi ?? 0.1)) : 0;
+
     const sale = await Sale.create({
       org, branch, receiptNo: seq('R'), cashier: user._id, customer: customer?._id, shift: shift?._id,
-      prescription: rx?._id, channel, clientId, offlineAt, flags, items: saleItems, subtotal, discount: disc, tax, total,
+      prescription: rx?._id, channel, clientId, offlineAt, flags, items: saleItems, subtotal, discount: round2(disc + priced.promoDiscount), promoDiscount: priced.promoDiscount, tax, total,
+      pointsEarned, pointsRedeemed: pointsToRedeem,
       payments: payments.map((p) => ({ method: p.method, amount: Number(p.amount), reference: p.reference })),
       changeGiven: change,
       ...(offlineAt && { createdAt: new Date(offlineAt) }),
@@ -149,7 +177,7 @@ const completeSale = async ({ user, org, branch, items, customerId, discount = 0
       await Customer.updateOne({ _id: customer._id }, { $inc: { balance: creditAmount } });
       await Ledger.create({ org, customer: customer._id, type: 'charge', amount: creditAmount, ref: sale.receiptNo, sale: sale._id, by: user._id });
     }
-    if (customer) await Customer.updateOne({ _id: customer._id }, { $inc: { loyaltyPoints: Math.floor(total / 10) } });
+    if (pointsEarned > 0) await Customer.updateOne({ _id: customer._id }, { $inc: { loyaltyPoints: pointsEarned } });
     if (shift && cashPaid) await Shift.updateOne({ _id: shift._id }, { $inc: { cashSales: round2(cashPaid - change) } });
 
     if (rx) {
@@ -173,6 +201,7 @@ const completeSale = async ({ user, org, branch, items, customerId, discount = 0
   } catch (e) {
     await restore(taken);
     for (const c of claimed) await unclaimRx(rx, c.product, c.qty);
+    if (redeemedFrom && pointsToRedeem) await Customer.updateOne({ _id: redeemedFrom }, { $inc: { loyaltyPoints: pointsToRedeem } });
     throw e;
   }
 };
@@ -198,7 +227,7 @@ const refundSale = async ({ user, sale, lines, reason }) => {
     if (RX_LEVELS.includes(p.legalStatus) && !user.isPharmacistInGoodStanding()) {
       throw forbidden('Refunds of prescription-only or controlled items need a pharmacist');
     }
-    amount += (item.lineTotal / item.qty + item.tax / item.qty) * qty;
+    amount += (item.net !== undefined && item.net !== null ? item.net / item.qty : item.lineTotal / item.qty + item.tax / item.qty) * qty;
     let left = qty;
     for (const lot of item.lots) {
       const put = Math.min(lot.qty, left);
@@ -212,6 +241,12 @@ const refundSale = async ({ user, sale, lines, reason }) => {
     }
   }
   await restore(restocked);
+  // Money paid with loyalty points goes back as points, in proportion to the refund.
+  const loyaltyPaid = sale.payments.filter((p) => p.method === 'loyalty').reduce((s, p) => s + p.amount, 0);
+  if (loyaltyPaid > 0 && sale.customer && sale.pointsRedeemed) {
+    const back = Math.round(sale.pointsRedeemed * Math.min(1, amount / sale.total));
+    if (back > 0) await Customer.updateOne({ _id: sale.customer }, { $inc: { loyaltyPoints: back } });
+  }
   sale.refunds.push({ at: new Date(), by: user._id, reason, amount: round2(amount), lines: toReturn.map((l) => ({ product: l.product, qty: Number(l.qty) })) });
   const totalRefunded = sale.refunds.reduce((s, r) => s + r.amount, 0);
   sale.status = totalRefunded + 0.01 >= sale.total ? 'refunded' : 'partially_refunded';
@@ -219,4 +254,4 @@ const refundSale = async ({ user, sale, lines, reason }) => {
   return sale;
 };
 
-module.exports = { completeSale, refundSale, refreshRxStatus, claimRx, unclaimRx, DISCOUNT_LIMIT, RX_LEVELS };
+module.exports = { completeSale, refundSale, quoteSale, refreshRxStatus, claimRx, unclaimRx, DISCOUNT_LIMIT, RX_LEVELS };

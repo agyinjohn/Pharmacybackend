@@ -118,6 +118,36 @@ router.post('/supplier-returns', branch(), roles('store_officer', 'branch_manage
   res.status(201).json(ret);
 }));
 
+/* ---------- Promotions (FR-POS-04) ---------- */
+const PROMO_FIELDS = ['name', 'type', 'value', 'buyQty', 'getQty', 'minQty', 'products', 'categories', 'branches', 'channel', 'startsAt', 'endsAt', 'active'];
+const promoBody = (b) => {
+  const o = PROMO_FIELDS.reduce((a, k) => (b[k] !== undefined ? { ...a, [k]: b[k] } : a), {});
+  if (o.type === 'percent' && !(o.value > 0 && o.value <= 100)) throw bad('Percent must be between 1 and 100');
+  if (o.type === 'fixed' && !(o.value > 0)) throw bad('Enter the amount off each unit');
+  if (o.type === 'bogo' && !(o.buyQty >= 1 && o.getQty >= 1)) throw bad('Buy and get quantities are required');
+  ['startsAt', 'endsAt'].forEach((k) => { if (o[k] === '') o[k] = null; });
+  return o;
+};
+router.get('/promotions', wrap(async (req, res) => {
+  const { Promotion } = require('../models');
+  res.json(await Promotion.find({ org: req.orgId }).populate('products', 'brand strength').sort('-createdAt'));
+}));
+router.post('/promotions', roles('branch_manager'), writable, wrap(async (req, res) => {
+  const { Promotion } = require('../models');
+  const pr = await Promotion.create({ ...promoBody(req.body), org: req.orgId });
+  await audit(req, 'promo.create', 'Promotion', pr._id, `Promotion "${pr.name}" created`);
+  res.status(201).json(pr);
+}));
+router.patch('/promotions/:id', roles('branch_manager'), writable, wrap(async (req, res) => {
+  const { Promotion } = require('../models');
+  const pr = await Promotion.findOne({ _id: req.params.id, org: req.orgId });
+  if (!pr) throw notFound();
+  Object.assign(pr, promoBody({ type: pr.type, ...req.body }));
+  await pr.save();
+  await audit(req, 'promo.update', 'Promotion', pr._id, `Promotion "${pr.name}" ${pr.active ? 'updated' : 'switched off'}`);
+  res.json(pr);
+}));
+
 /* ---------- Privacy: erasure requests (REG-17) ---------- */
 router.get('/privacy/erasure-requests', roles('branch_manager'), wrap(async (req, res) => {
   res.json(await Customer.find({ org: req.orgId, erasureRequestedAt: { $ne: null }, anonymizedAt: null }, 'name phone email erasureRequestedAt'));

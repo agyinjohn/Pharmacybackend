@@ -1,5 +1,6 @@
 const router = require('express').Router();
-const { Order, Prescription, Sale, Branch, User, Product } = require('../models');
+const { Order, Prescription, Sale, Branch, User, Product, Promotion } = require('../models');
+const { priceBasket } = require('../services/pricing');
 const { wrap, bad, notFound, conflict, forbidden, round2, seq } = require('../utils/http');
 const { staff, roles, branch, writable } = require('../middleware/auth');
 const { audit } = require('../services/audit');
@@ -146,15 +147,16 @@ router.post('/orders/:id/edit', roles('pharmacist', 'branch_manager'), writable,
   }
   const describe = (list) => list.map((i) => `${i.qty} x ${i.name}`).join(', ');
   const before = describe(o.items);
-  const subtotal = round2(items.reduce((s, i) => s + i.unitPrice * i.qty, 0));
-  const tax = round2(items.reduce((s, i) => s + i.unitPrice * i.qty * (i.taxRate || 0), 0));
-  const total = round2(subtotal + tax + (o.deliveryFee || 0));
+  const priced = priceBasket(items.map((i) => ({ p: prods.find((x) => String(x._id) === String(i.product)), qty: i.qty, unitPrice: i.unitPrice })), { promos: await Promotion.find({ org: req.orgId, active: true }), channel: 'online', branch: o.branch });
+  priced.lines.forEach((l, k) => { items[k].promoDiscount = l.promoDiscount; items[k].promoName = l.promoName; });
+  const { subtotal, tax } = priced;
+  const total = round2(priced.total + (o.deliveryFee || 0));
   if (o.payment.status === 'paid' && total > o.total + 0.001) throw conflict('The new total is higher than what the customer paid; message them to place an extra order instead');
   const refundDue = o.payment.status === 'paid' ? round2(o.total - total) : 0;
   if (refundDue > 0 && o.payment.provider === 'paystack') {
     try { await payments.refund(o.payment.reference, refundDue); } catch (e) { o.history.push({ status: o.status, by: 'system', note: `Partial refund of ${refundDue} failed (${e.message}); refund manually` }); }
   }
-  o.items = items; o.subtotal = subtotal; o.tax = tax; o.total = total;
+  o.items = items; o.subtotal = subtotal; o.discount = priced.promoDiscount; o.tax = tax; o.total = total;
   if (refundDue > 0) o.payment.refundedAmount = round2((o.payment.refundedAmount || 0) + refundDue);
   if (o.status === 'pending_review' && !rxItems.length) o.status = 'received';
   o.history.push({ status: o.status, by: req.user.name, note: `Changed: ${reason}. Was ${before}; now ${describe(items)}${refundDue > 0 ? `. Refund ${refundDue}` : ''}` });
@@ -239,11 +241,11 @@ router.post('/orders/:id/deliver', roles('dispatcher', 'branch_manager', 'pharma
   await o.save();
   // Record revenue as an online sale; stock was already taken at approval.
   const subtotal = round2(o.items.reduce((s, i) => s + i.unitPrice * i.qty, 0));
-  const tax = round2(o.items.reduce((s, i) => s + i.unitPrice * i.qty * (i.taxRate || 0), 0));
+  const tax = o.tax || 0;
   await Sale.create({
     org: req.orgId, branch: o.branch, receiptNo: seq('W'), cashier: req.user._id, customer: o.customer._id, channel: 'online', prescription: o.prescription,
-    items: o.items.map((i) => ({ product: i.product, name: i.name, qty: i.qty, unitPrice: i.unitPrice, taxRate: i.taxRate, tax: round2(i.unitPrice * i.qty * (i.taxRate || 0)), lineTotal: round2(i.unitPrice * i.qty), lots: i.lots })),
-    subtotal, tax, total: round2(subtotal + tax + (o.deliveryFee || 0)), payments: [{ method: o.payment.method === 'cod' ? 'cash' : o.payment.method, amount: o.total, reference: o.payment.reference }],
+    items: o.items.map((i) => ({ product: i.product, name: i.name, qty: i.qty, unitPrice: i.unitPrice, taxRate: i.taxRate, promoDiscount: i.promoDiscount || 0, promoName: i.promoName, tax: round2((i.unitPrice * i.qty - (i.promoDiscount || 0)) * (i.taxRate || 0)), lineTotal: round2(i.unitPrice * i.qty), net: round2((i.unitPrice * i.qty - (i.promoDiscount || 0)) * (1 + (i.taxRate || 0))), lots: i.lots })),
+    subtotal, discount: o.discount || 0, promoDiscount: o.discount || 0, tax, total: o.total, payments: [{ method: o.payment.method === 'cod' ? 'cash' : o.payment.method, amount: o.total, reference: o.payment.reference }],
   });
   await notify(o.customer, `Order ${o.orderNo} delivered. Thank you!`);
   await audit(req, 'order.deliver', 'Order', o._id, `Order ${o.orderNo} delivered to ${recipient}`);

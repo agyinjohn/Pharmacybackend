@@ -10,6 +10,8 @@ const payments = require('../services/payments');
 const { notify } = require('../services/notify');
 const { deductFefo, restore } = require('../services/stock');
 const { webUrl } = require('../config');
+const { priceBasket, bestPromo } = require('../services/pricing');
+const { Promotion } = require('../models');
 
 // Public customer portal API. Everything is scoped by pharmacy slug; controlled drugs are never exposed (REG-14).
 const loadOrg = wrap(async (req, res, next) => {
@@ -103,6 +105,7 @@ router.get('/:slug/products', loadOrg, wrap(async (req, res) => {
     f.$and = [{ $or: [{ brand: rx }, { generic: rx }, { category: rx }, { symptoms: rx }] }];
   }
   const products = await Product.find(f).sort('brand').limit(120);
+  const promos = await Promotion.find({ org: req.orgId, active: true });
   let stock = new Map();
   if (branch) {
     const rows = await Batch.aggregate([
@@ -115,6 +118,8 @@ router.get('/:slug/products', loadOrg, wrap(async (req, res) => {
     _id: p._id, brand: p.brand, generic: p.generic, strength: p.strength, form: p.form, packSize: p.packSize, category: p.category,
     price: branch ? priceFor(p, branch) : p.price, requiresRx: p.legalStatus === 'prescription_only', legalStatus: p.legalStatus,
     taxRate: p.taxRate, stock: stock.get(String(p._id)) || 0, inStock: (stock.get(String(p._id)) || 0) > 0,
+    promo: bestPromo(promos, { p, qty: 1 }, branch ? priceFor(p, branch) : p.price, { channel: 'online', branch, now: new Date() })?.name
+      || promos.find((pr) => pr.type === 'bogo' && pr.active && (!pr.products.length || pr.products.some((x) => String(x) === String(p._id))) && p.legalStatus !== 'prescription_only')?.name,
   })));
 }));
 
@@ -212,19 +217,20 @@ router.post('/:slug/orders', loadOrg, customer, wrap(async (req, res) => {
   if (!['momo', 'card', 'cod'].includes(method)) throw bad('Choose a payment method');
   if (method === 'cod' && (!req.org.settings.codEnabled || fulfilment !== 'delivery')) throw conflict('Pay on delivery is not available');
 
-  const subtotal = round2(lines.reduce((s, l) => s + priceFor(l.p, b._id) * l.qty, 0));
-  const tax = round2(lines.reduce((s, l) => s + priceFor(l.p, b._id) * l.qty * l.p.taxRate, 0));
-  const total = round2(subtotal + tax + deliveryFee);
+  const priced = priceBasket(lines.map((l) => ({ p: l.p, qty: l.qty, unitPrice: priceFor(l.p, b._id) })), { promos: await Promotion.find({ org: req.orgId, active: true }), channel: 'online', branch: b._id });
+  const { subtotal, tax } = priced;
+  const discount = priced.promoDiscount;
+  const total = round2(priced.total + deliveryFee);
   const live = method !== 'cod' && payments.enabled(); // real provider: hold stock until paid
   const reference = seq('PAY');
   const status = rxLines.length ? 'pending_review' : 'received';
   const order = new Order({
     org: req.orgId, branch: b._id, orderNo: seq('ON'), customer: req.customer._id, prescription: prescription?._id, fulfilment, address: addr,
-    deliveryFee, etaMins, subtotal, tax, total,
+    deliveryFee, etaMins, subtotal, discount, tax, total,
     // Without a provider key payment is simulated as paid; production never stores card data (CP-PAY-01).
     payment: method === 'cod' ? { method, status: 'pending' } : live ? { method, status: 'pending', reference, provider: 'paystack' } : { method, status: 'paid', reference },
     status,
-    items: lines.map((l) => ({ product: l.p._id, name: `${l.p.brand}${l.p.strength ? ' ' + l.p.strength : ''}`, qty: l.qty, unitPrice: priceFor(l.p, b._id), taxRate: l.p.taxRate, requiresRx: l.p.legalStatus === 'prescription_only' })),
+    items: priced.lines.map((l) => ({ product: l.p._id, name: `${l.p.brand}${l.p.strength ? ' ' + l.p.strength : ''}`, qty: l.qty, unitPrice: l.unitPrice, taxRate: l.p.taxRate, requiresRx: l.p.legalStatus === 'prescription_only', promoDiscount: l.promoDiscount, promoName: l.promoName })),
     history: [{ status, by: 'customer', note }],
   });
   let paymentUrl;
