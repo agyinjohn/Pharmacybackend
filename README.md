@@ -33,10 +33,15 @@ Customer portal for the demo pharmacy uses slug `medicare`; the sign-in code is 
 |---|---|
 | Payments | Paystack hosted checkout when `PAYSTACK_SECRET_KEY` is set (stock is held until paid, released after `reservationMinutes`, refunds go back automatically, signature-checked webhook). Otherwise simulated. **Unverified against live Paystack - test with sandbox keys.** |
 | SMS | `SMS_PROVIDER=arkesel` or a generic `webhook`; failures are recorded and never break the business action. **Unverified against live gateways.** |
-| Offline selling | `GET /pos/catalog` + `POST /sales/sync` (idempotent by `clientId`; stock shortfalls are accepted and flagged). The web till queues sales in IndexedDB. Prescription-only and controlled items need a connection. |
+| Offline working | `POST /offline/sync` takes sales, goods received and dispensing of verified (non-controlled) prescriptions, each applied once by `clientId`. Stock shortfalls and possible duplicate fills found after sync are recorded and flagged, not rejected. Snapshots: `GET /pos/catalog`, `GET /offline/rx-snapshot`. Older `POST /sales/sync` still works. |
+| Offline selling (legacy) | `GET /pos/catalog` + `POST /sales/sync` (idempotent by `clientId`; stock shortfalls are accepted and flagged). The web till queues sales in IndexedDB. Prescription-only and controlled items need a connection. |
 | Rider tracking | Rider phone posts its position; customer sees last position and a map link. External couriers: name, phone and tracking link. |
 | Backups | `scripts/backup.sh` (hourly cron, retention, off-site upload hook) and `scripts/restore.sh`. See *Operations* below. |
 | Tests | `npm test` (no database needed) and `npm run smoke` (needs a seeded API). CI runs both against a MongoDB service. |
+| Data import | `POST /imports/:type` for products, stock, customers (with opening balances) and suppliers; `dryRun: true` returns a row-by-row validation report; each committed run is kept as the data migration report (`GET /imports`). CSV or .xlsx. |
+| Excel export | Any report, the controlled-drug register, audit log, product list and data-protection records accept `?format=xlsx`. |
+| Promotions and loyalty | Percent, amount-off and buy-X-get-Y promotions by product, category, branch, channel and dates; never on prescription or controlled medicines. Loyalty points earned on spend and redeemable at the till (`loyalty` payment method). |
+| Data protection | Record of processing activities, security incident log, per-record retention with preview, hosting location (`/dp/*`). |
 | Not built | National e-pharmacy platform (GNEPP), FDA product data, insurance eligibility APIs, tax-authority e-invoicing, courier APIs: each needs access or specs from the client. |
 
 ### Operations
