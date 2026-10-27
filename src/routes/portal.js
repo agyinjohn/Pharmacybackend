@@ -144,6 +144,7 @@ router.get('/:slug/products', loadOrg, wrap(async (req, res) => {
     _id: p._id, brand: p.brand, generic: p.generic, strength: p.strength, form: p.form, packSize: p.packSize, category: p.category, imageUrl: p.imageUrl,
     price: branch ? priceFor(p, branch) : p.price, requiresRx: p.legalStatus === 'prescription_only', legalStatus: p.legalStatus,
     taxRate: p.taxRate, stock: stock.get(String(p._id)) || 0, inStock: (stock.get(String(p._id)) || 0) > 0,
+    directions: p.legalStatus === 'prescription_only' ? undefined : p.directions, warnings: p.warnings,
     promo: bestPromo(promos, { p, qty: 1 }, branch ? priceFor(p, branch) : p.price, { channel: 'online', branch, now: new Date() })?.name
       || promos.find((pr) => pr.type === 'bogo' && pr.active && (!pr.products.length || pr.products.some((x) => String(x) === String(p._id))) && p.legalStatus !== 'prescription_only')?.name,
   })));

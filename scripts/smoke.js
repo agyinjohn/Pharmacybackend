@@ -54,6 +54,11 @@ const login = async (email) => { const d = ok(await call('/auth/login', { body: 
 
   const rxs = await step('list prescriptions', async () => ok(await call('/prescriptions', { token: pharm.token, branch: acc })));
   const rx1 = rxs?.find((r) => r.rxNo === 'RX-DEMO-001'); const rx2 = rxs?.find((r) => r.rxNo === 'RX-DEMO-002'); const rx3 = rxs?.find((r) => r.rxNo === 'RX-DEMO-003');
+  const rx4 = rxs?.find((r) => r.rxNo === 'RX-DEMO-004');
+  await step('verify refused until directions are entered', async () => { const r = await call(`/prescriptions/${rx4._id}/verify`, { token: pharm.token, branch: acc, body: {} }); ok(r, 409); if (!r.data.needsDirections) throw new Error('expected needsDirections'); });
+  await step('pharmacist enters directions', async () => { const r = ok(await call(`/prescriptions/${rx4._id}/directions`, { method: 'PATCH', token: pharm.token, branch: acc, body: { items: [{ product: rx4.items[0].product, dose: '500mg', frequency: 'Twice daily', duration: '5 days' }] } })); if (r.items[0].frequency !== 'Twice daily') throw new Error('directions not saved'); });
+  await step('verify after directions', async () => ok(await call(`/prescriptions/${rx4._id}/verify`, { token: pharm.token, branch: acc, body: {} })));
+  await step('sale line carries product directions', async () => { if (!sale.items[0].directions) throw new Error('no directions on receipt line'); });
   await step('verify raises allergy warning', async () => { const r = await call(`/prescriptions/${rx1._id}/verify`, { token: pharm.token, branch: acc, body: {} }); ok(r, 409); if (!r.data.warnings.some((w) => /ALLERGY/.test(w))) throw new Error('no allergy warning'); });
   await step('override needs reason', async () => { ok(await call(`/prescriptions/${rx1._id}/verify`, { token: pharm.token, branch: acc, body: { override: true } }), 400); });
   await step('override with reason verifies', async () => ok(await call(`/prescriptions/${rx1._id}/verify`, { token: pharm.token, branch: acc, body: { override: true, overrideReason: 'Tolerated before, doctor aware' } })));

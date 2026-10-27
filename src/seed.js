@@ -11,6 +11,28 @@ const day = (n) => new Date(Date.now() + n * 86400000);
 const rnd = (a, b) => Math.floor(a + Math.random() * (b - a + 1));
 const pick = (arr) => arr[rnd(0, arr.length - 1)];
 
+// Demo directions in the style of a standard adult pack label, for showing the feature only. A real
+// pharmacy's pharmacist reviews and writes these for their own products. Prescription-only medicines are
+// left blank on purpose: their directions come from the prescriber on each prescription.
+const DIRECTIONS = {
+  'Panadol Extra': ['Adults and children 12 and over: 2 tablets every 4 to 6 hours when needed. No more than 8 tablets in 24 hours.', 'Do not take with any other medicine that contains paracetamol.'],
+  'Paracetamol Generic': ['Adults and children 12 and over: 2 tablets every 4 to 6 hours when needed. No more than 8 tablets in 24 hours.', 'Do not take with any other medicine that contains paracetamol.'],
+  'Ibuprofen 400': ['Adults: 1 tablet up to 3 times a day, with or after food. Leave at least 6 hours between doses.', 'Take with food. Ask the pharmacist first if you have stomach ulcers, asthma, kidney problems or are pregnant.'],
+  'Diclofenac Gel': ['Rub a small amount gently into the painful area 3 to 4 times a day.', 'Do not use on broken skin. Wash your hands after use.'],
+  'Coartem 80/480': ['Adults: 1 tablet to start, 1 more after 8 hours, then 1 tablet twice a day for the next 2 days (6 tablets in total).', 'Take with food or milk. Finish the full course even if you feel better.'],
+  'Lonart DS': ['Adults: 1 tablet to start, 1 more after 8 hours, then 1 tablet twice a day for the next 2 days (6 tablets in total).', 'Take with food or milk. Finish the full course even if you feel better.'],
+  'ORS Sachets': ['Dissolve 1 sachet in the amount of clean drinking water shown on the pack. Sip slowly, especially after each loose stool.', 'See a health worker if diarrhoea lasts more than 2 days, there is blood in the stool, or for babies.'],
+  'Loperamide': ['Adults: 2 capsules to start, then 1 after each loose stool. No more than 6 capsules in 24 hours.', 'Not for children under 12. Drink plenty of fluids. Stop and see a doctor if there is fever or blood in the stool.'],
+  'Omeprazole 20': ['Adults: 1 capsule once a day before breakfast, for up to 14 days.', 'See a doctor if symptoms continue after 14 days.'],
+  'Gaviscon': ['Adults: 10 to 20 ml after meals and at bedtime, up to 4 times a day.', ''],
+  'Cetirizine 10': ['Adults and children 12 and over: 1 tablet once a day.', 'May cause drowsiness. Avoid alcohol.'],
+  'Benylin Cough Syrup': ['Adults: 10 ml up to 4 times a day.', 'May cause drowsiness. Do not drive if affected.'],
+  'Strepsils Lozenges': ['Adults and children 6 and over: dissolve 1 lozenge slowly in the mouth every 2 to 3 hours. No more than 12 in 24 hours.', ''],
+  'Vitamin C 1000': ['Adults: dissolve 1 tablet in a glass of water once a day.', ''],
+  'Multivitamin Daily': ['Adults: 1 tablet a day with food.', ''],
+  'Ferrous Sulphate': ['Adults: 1 tablet once or twice a day, or as your health worker advises.', 'May turn stools dark. Take with food if it upsets your stomach.'],
+};
+
 // [brand, generic, strength, form, pack, category, legal, price, cost, tax, symptoms, barcode, extra]
 const CATALOGUE = [
   ['Panadol Extra', 'Paracetamol', '500mg', 'Tablet', '24s', 'Pain & Fever', 'otc', 18, 11, 0, ['Headache', 'Fever', 'Pain']],
@@ -88,6 +110,7 @@ const CATALOGUE = [
   for (const [brand, generic, strength, form, packSize, category, legalStatus, price, cost, taxRate, symptoms, barcode, extra = {}] of CATALOGUE) {
     products.push(await M.Product.create({
       org: org._id, brand, generic, strength, form, packSize, category, legalStatus, price, cost, taxRate, symptoms,
+      directions: DIRECTIONS[brand]?.[0], warnings: DIRECTIONS[brand]?.[1] || undefined,
       barcode: barcode || String(6291000000000 + products.length * 17), manufacturer: pick(['Ernest Chemists', 'Kinapharma', 'GSK', 'Cipla', 'Pfizer', 'Letap']),
       fdaRegNo: `FDA/${String(10000 + products.length)}`, reorderLevel: legalStatus === 'controlled' ? 5 : 15,
       branchPrices: brand === 'Panadol Extra' ? [{ branch: tkd._id, price: 19 }] : [], ...extra,

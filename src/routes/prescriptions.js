@@ -57,6 +57,9 @@ router.post('/prescriptions/:id/verify', roles('pharmacist'), writable, wrap(asy
   if (!rx) throw notFound();
   if (rx.status !== 'pending') throw conflict('Prescription has already been processed');
   if (rx.hasControlled && !rx.paperOriginalSeen) throw conflict('Sight the signed paper original before verifying a controlled-drug prescription');
+  // Labels and dose reminders come from these directions, so every medicine needs them before verifying.
+  const missing = rx.items.filter((i) => !(i.dose || '').trim() || !(i.frequency || '').trim());
+  if (missing.length) return res.status(409).json({ error: `Add the dose and how often for ${missing.map((i) => i.name).join(', ')} before verifying`, needsDirections: true });
   const prods = await Product.find({ _id: { $in: rx.items.map((i) => i.product) } });
   const customer = rx.customer ? await Customer.findById(rx.customer) : null;
   const warnings = checkPrescription(prods, customer?.allergies);
@@ -72,6 +75,24 @@ router.post('/prescriptions/:id/verify', roles('pharmacist'), writable, wrap(asy
   await Order.updateMany({ prescription: rx._id, status: 'pending_review' }, { $set: { reviewNote: 'Prescription verified' } });
   await audit(req, 'rx.verify', 'Prescription', rx._id, `Verified prescription ${rx.rxNo}`);
   res.json(rx);
+}));
+
+// The pharmacist types the prescriber's directions (dose, how often, how long) for each medicine, for
+// example from a photo uploaded online. Only while the prescription is still waiting to be verified.
+router.patch('/prescriptions/:id/directions', roles('pharmacist'), writable, wrap(async (req, res) => {
+  const rx = await Prescription.findOne({ _id: req.params.id, org: req.orgId });
+  if (!rx) throw notFound();
+  if (rx.status !== 'pending') throw conflict('Directions can only be changed before the prescription is verified');
+  const list = Array.isArray(req.body.items) ? req.body.items : [];
+  const clean = (v) => String(v ?? '').trim().slice(0, 120);
+  for (const d of list) {
+    const it = rx.items.find((i) => String(i.product) === String(d.product));
+    if (!it) throw bad('Unknown medicine on this prescription');
+    it.dose = clean(d.dose); it.frequency = clean(d.frequency); it.duration = clean(d.duration);
+  }
+  await rx.save();
+  await audit(req, 'rx.directions', 'Prescription', rx._id, `Entered directions on ${rx.rxNo}`);
+  res.json(await Prescription.findById(rx._id).populate('branch', 'name').populate('customer').populate('notes.by verifiedBy', 'name'));
 }));
 
 router.post('/prescriptions/:id/reject', roles('pharmacist'), writable, wrap(async (req, res) => {
@@ -115,9 +136,10 @@ router.post('/prescriptions/:id/dispense', branch(), roles('pharmacist'), writab
   await audit(req, 'rx.dispense', 'Prescription', rx._id, `Dispensed ${rx.rxNo} (sale ${sale.receiptNo})`);
   // Dose reminders from the directions, unless the pharmacist unticked them.
   const reminders = req.body.reminders === false ? [] : await plansFromDispensing({ rx, lines: sale.items.map((i) => ({ product: i.product, qty: i.qty })), branch: req.branchId, by: req.user.name });
+  const prodWarn = new Map((await Product.find({ _id: { $in: sale.items.map((i) => i.product) } }, 'warnings').lean()).map((p) => [String(p._id), p.warnings]));
   const labels = sale.items.map((it) => {
     const line = rx.items.find((i) => String(i.product) === String(it.product));
-    return { patient: rx.patientName, drug: it.name, directions: [line?.dose, line?.frequency, line?.duration].filter(Boolean).join(', '), qty: it.qty, batch: it.lots.map((l) => l.batchNo).join(', '), expiry: it.lots[0]?.expiry, date: new Date(), rxNo: rx.rxNo };
+    return { patient: rx.patientName, drug: it.name, directions: [line?.dose, line?.frequency, line?.duration].filter(Boolean).join(', '), warnings: prodWarn.get(String(it.product)), qty: it.qty, batch: it.lots.map((l) => l.batchNo).join(', '), expiry: it.lots[0]?.expiry, date: new Date(), rxNo: rx.rxNo };
   });
   res.json({ sale, labels, reminders, prescription: await Prescription.findById(rx._id, '-image') });
 }));

@@ -113,6 +113,10 @@ const Product = mongoose.model('Product', new Schema({
   branchReorder: [{ branch: ref('Branch'), level: Number }],
   storage: { type: String, enum: ['ambient', 'cold_chain'], default: 'ambient' },
   symptoms: [String],
+  // Usual directions and warnings, written by the pharmacy's pharmacist. Shown at the till, on receipts,
+  // in the online store and on dispensing labels; a prescriber's own directions always take priority.
+  directions: String,
+  warnings: String,
   imageUrl: String, // uploaded photo (/api/images/products/:id?v=...) or an external https URL from an import
   active: { type: Boolean, default: true },
 }, opts).index({ brand: 'text', generic: 'text' }));
@@ -297,6 +301,7 @@ const Sale = mongoose.model('Sale', new Schema({
     promoDiscount: Number,
     promoName: String,
     net: Number,
+    directions: String,
     taxRate: Number,
     tax: Number,
     lineTotal: Number,

@@ -129,6 +129,7 @@ const completeSale = async ({ user, org, branch, items, customerId, discount = 0
       taken.push(...lots);
       saleItems.push({
         product: p._id, name: `${p.brand}${p.strength ? ' ' + p.strength : ''}`, qty, shortfall, unitPrice: priceFor(p, branch), taxRate: p.taxRate,
+        directions: [p.directions, p.warnings].filter(Boolean).join(' ') || undefined,
         cost: lots.length ? round2(lots.reduce((s, l) => s + l.cost * l.qty, 0) / takeQty) : p.cost,
         lots: lots.map(({ batch, batchNo, expiry, qty: q }) => ({ batch, batchNo, expiry, qty: q })),
       });

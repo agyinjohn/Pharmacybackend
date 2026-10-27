@@ -6,7 +6,7 @@ const { audit } = require('../services/audit');
 const { oid } = require('../services/stock');
 
 
-const FIELDS = ['imageUrl', 'brand', 'generic', 'strength', 'form', 'packSize', 'manufacturer', 'barcode', 'category', 'isDrug', 'legalStatus', 'controlClass', 'fdaRegNo', 'price', 'cost', 'taxRate', 'branchPrices', 'reorderLevel', 'branchReorder', 'storage', 'symptoms', 'active'];
+const FIELDS = ['imageUrl', 'brand', 'generic', 'strength', 'form', 'packSize', 'manufacturer', 'barcode', 'category', 'isDrug', 'legalStatus', 'controlClass', 'fdaRegNo', 'price', 'cost', 'taxRate', 'branchPrices', 'reorderLevel', 'branchReorder', 'storage', 'symptoms', 'directions', 'warnings', 'active'];
 const pick = (src) => {
   const o = FIELDS.reduce((a, k) => (src[k] !== undefined ? { ...a, [k]: src[k] } : a), {});
   if (o.imageUrl && !/^(https:\/\/\S+|\/images\/products\/[a-f0-9]{24}\?v=\w+)$/i.test(o.imageUrl)) throw bad('Image link must start with https://');
