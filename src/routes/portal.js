@@ -34,7 +34,11 @@ router.get('/directory', wrap(async (req, res) => {
 }));
 
 router.get('/orders/mine', customer, wrap(async (req, res) => {
-  res.json(await Order.find({ customer: req.customer._id }).populate('branch', 'name phone address').sort('-createdAt').limit(50));
+  const orders = await Order.find({ customer: req.customer._id }).populate('branch', 'name phone address').sort('-createdAt').limit(50).lean();
+  // Product photos for the order lines, so customers can recognise what they bought.
+  const ids = [...new Set(orders.flatMap((o) => o.items.map((i) => String(i.product))))];
+  const pics = new Map((await Product.find({ _id: { $in: ids }, imageUrl: { $ne: null } }, 'imageUrl').lean()).map((p) => [String(p._id), p.imageUrl]));
+  res.json(orders.map((o) => ({ ...o, items: o.items.map((i) => ({ ...i, imageUrl: pics.get(String(i.product)) || null })) })));
 }));
 
 router.get('/me', customer, wrap(async (req, res) => {
