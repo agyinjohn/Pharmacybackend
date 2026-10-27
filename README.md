@@ -27,16 +27,34 @@ Customer portal for the demo pharmacy uses slug `medicare`; the sign-in code is 
 - **Customer portal** (`/api/portal/...`): OTP sign-in, catalogue with live branch stock and substitutes, controlled drugs never exposed, prescription upload, delivery zones and fees, order tracking, cancel before packing. Branches whose licence has lapsed stop taking online orders automatically.
 - **Orders**: received / pending_review -> approved (stock taken, Rx verified) -> packed -> out_for_delivery (code for customer) -> delivered (proof) | failed (restock only if intact) | cancelled | rejected.
 
+## Integrations and operations
+
+| Area | Status |
+|---|---|
+| Payments | Paystack hosted checkout when `PAYSTACK_SECRET_KEY` is set (stock is held until paid, released after `reservationMinutes`, refunds go back automatically, signature-checked webhook). Otherwise simulated. **Unverified against live Paystack - test with sandbox keys.** |
+| SMS | `SMS_PROVIDER=arkesel` or a generic `webhook`; failures are recorded and never break the business action. **Unverified against live gateways.** |
+| Offline selling | `GET /pos/catalog` + `POST /sales/sync` (idempotent by `clientId`; stock shortfalls are accepted and flagged). The web till queues sales in IndexedDB. Prescription-only and controlled items need a connection. |
+| Rider tracking | Rider phone posts its position; customer sees last position and a map link. External couriers: name, phone and tracking link. |
+| Backups | `scripts/backup.sh` (hourly cron, retention, off-site upload hook) and `scripts/restore.sh`. See *Operations* below. |
+| Tests | `npm test` (no database needed) and `npm run smoke` (needs a seeded API). CI runs both against a MongoDB service. |
+| Not built | National e-pharmacy platform (GNEPP), FDA product data, insurance eligibility APIs, tax-authority e-invoicing, courier APIs: each needs access or specs from the client. |
+
+### Operations
+
+- **Deploy**: `docker compose up --build` (API + MongoDB); set `JWT_SECRET`, `CORS_ORIGIN`, `PUBLIC_WEB_URL`. Use MongoDB Atlas (with continuous backup) for production.
+- **NFR-06 targets** (<= 1 hour data loss, <= 4 hours to restore): run `scripts/backup.sh` hourly with an off-site `BACKUP_UPLOAD_CMD`, or use Atlas continuous cloud backup. Test `scripts/restore.sh` into a scratch database at least twice a year.
+- **Uptime (NFR-04)**: `/api/health` for monitoring. Run two API instances behind a load balancer for 99.5%.
+- **Security**: set a strong `JWT_SECRET`, serve over HTTPS, enable MongoDB encryption at rest (Atlas default), and turn on *Require two-step sign-in* in Settings.
+
 ## Demo shortcuts (replace before go-live)
 
 | Area | Demo behaviour | Production |
 |---|---|---|
-| Payments | Mobile money / card are simulated as "paid" with a reference | Payment provider integration; never store card data |
-| SMS / email | `services/notify.js` logs to console | SMS gateway + email service |
+| Payments | Simulated unless `PAYSTACK_SECRET_KEY` is set | Verify the Paystack integration in sandbox |
+| SMS | Logged unless `SMS_PROVIDER` is set; email is not implemented | Verify gateway, add email provider |
 | OTP | Fixed code returned by the API when `NODE_ENV != production` | Real SMS OTP |
 | Drug interactions | Small built-in table in `services/clinical.js` | Drug-information provider |
 | Prescription images | Stored as data URLs in MongoDB | Object storage |
-| Offline selling (NFR-05) | Not implemented | Needs a local-first client + sync |
 | GNEPP / FDA / courier / insurance / e-invoicing | Not implemented (phase 3, need client access) | Per integrations list |
 
 Tax rates, approval limits (`PO_LIMIT`), discount limits (`DISCOUNT_LIMIT`) and the 14-day refund window are placeholders to be confirmed with the client.
