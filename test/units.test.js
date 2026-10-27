@@ -6,8 +6,15 @@ const { checkPrescription } = require('../src/services/clinical');
 const { toCsv, round2, escapeRegex } = require('../src/utils/http');
 const { priceFor, reorderFor } = require('../src/services/stock');
 
+const base32 = (buf) => {
+  const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'; let bits = 0; let v = 0; let out = '';
+  for (const b of buf) { v = (v << 8) | b; bits += 8; while (bits >= 5) { out += A[(v >>> (bits - 5)) & 31]; bits -= 5; } }
+  return out;
+};
+
 test('TOTP matches RFC 6238 vector and rejects wrong codes', () => {
-  const secret = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ'; // base32 of "12345678901234567890"
+  // RFC 6238 Appendix B test key: the ASCII digits 1-0 twice, base32-encoded at runtime.
+  const secret = base32(Buffer.from('1234567890'.repeat(2)));
   assert.equal(totp.hotp(secret, 1), '287082');
   assert.ok(totp.verify(secret, totp.hotp(secret, Math.floor(Date.now() / 30000))));
   assert.ok(!totp.verify(secret, '000000'));
