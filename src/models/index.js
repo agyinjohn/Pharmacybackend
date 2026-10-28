@@ -16,6 +16,7 @@ const Organization = mongoose.model('Organization', new Schema({
   name: { type: String, required: true, trim: true },
   slug: { type: String, required: true, unique: true, lowercase: true, trim: true },
   plan: { type: String, enum: ['starter', 'growth', 'enterprise'], default: 'growth' },
+  seedVersion: { type: Number, default: 0 },
   dpcRegistration: String,
   settings: {
     purchasing: { type: String, enum: ['central', 'branch'], default: 'branch' },

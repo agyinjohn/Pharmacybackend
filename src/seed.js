@@ -36,46 +36,46 @@ const DIRECTIONS = {
 // [brand, generic, strength, form, pack, category, legal, price, cost, tax, symptoms, barcode, extra]
 // imageUrl: stable public image for demo catalogue (Wikimedia Commons / Open Food Facts CDN)
 const IMAGES = {
-  'Panadol Extra':        'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Panadol_Extra_Tablets.jpg/320px-Panadol_Extra_Tablets.jpg',
-  'Paracetamol Generic':  'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Panadol_Extra_Tablets.jpg/320px-Panadol_Extra_Tablets.jpg',
-  'Ibuprofen 400':        'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Ibuprofen_200mg_Tablets.jpg/320px-Ibuprofen_200mg_Tablets.jpg',
-  'Diclofenac Gel':       'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/Voltaren_Emulgel.jpg/320px-Voltaren_Emulgel.jpg',
-  'Diclofenac 50':        'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/Voltaren_Emulgel.jpg/320px-Voltaren_Emulgel.jpg',
-  'Amoxil':               'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Amoxicillin_500mg_Capsules.jpg/320px-Amoxicillin_500mg_Capsules.jpg',
-  'Amoxicillin Generic':  'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Amoxicillin_500mg_Capsules.jpg/320px-Amoxicillin_500mg_Capsules.jpg',
-  'Augmentin 625':        'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Amoxicillin_500mg_Capsules.jpg/320px-Amoxicillin_500mg_Capsules.jpg',
-  'Ciprofloxacin 500':    'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Ciprofloxacin_500mg_Tablets.jpg/320px-Ciprofloxacin_500mg_Tablets.jpg',
-  'Metronidazole 400':    'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Ciprofloxacin_500mg_Tablets.jpg/320px-Ciprofloxacin_500mg_Tablets.jpg',
-  'Coartem 80/480':       'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/Coartem_tablets.jpg/320px-Coartem_tablets.jpg',
-  'Lonart DS':            'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/Coartem_tablets.jpg/320px-Coartem_tablets.jpg',
-  'Malarone':             'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/Coartem_tablets.jpg/320px-Coartem_tablets.jpg',
-  'ORS Sachets':          'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/ORS_Sachet.jpg/320px-ORS_Sachet.jpg',
-  'Loperamide':           'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Ibuprofen_200mg_Tablets.jpg/320px-Ibuprofen_200mg_Tablets.jpg',
-  'Omeprazole 20':        'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Ibuprofen_200mg_Tablets.jpg/320px-Ibuprofen_200mg_Tablets.jpg',
-  'Gaviscon':             'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/Gaviscon_bottle.jpg/320px-Gaviscon_bottle.jpg',
-  'Metformin 500':        'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Ibuprofen_200mg_Tablets.jpg/320px-Ibuprofen_200mg_Tablets.jpg',
-  'Glibenclamide 5':      'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Ibuprofen_200mg_Tablets.jpg/320px-Ibuprofen_200mg_Tablets.jpg',
-  'Amlodipine 5':         'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Ibuprofen_200mg_Tablets.jpg/320px-Ibuprofen_200mg_Tablets.jpg',
-  'Lisinopril 10':        'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Ibuprofen_200mg_Tablets.jpg/320px-Ibuprofen_200mg_Tablets.jpg',
-  'Atorvastatin 20':      'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Ibuprofen_200mg_Tablets.jpg/320px-Ibuprofen_200mg_Tablets.jpg',
-  'Cetirizine 10':        'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Ibuprofen_200mg_Tablets.jpg/320px-Ibuprofen_200mg_Tablets.jpg',
-  'Benylin Cough Syrup':  'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/Gaviscon_bottle.jpg/320px-Gaviscon_bottle.jpg',
-  'Strepsils Lozenges':   'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Ibuprofen_200mg_Tablets.jpg/320px-Ibuprofen_200mg_Tablets.jpg',
-  'Vitamin C 1000':       'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Ibuprofen_200mg_Tablets.jpg/320px-Ibuprofen_200mg_Tablets.jpg',
-  'Multivitamin Daily':   'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Ibuprofen_200mg_Tablets.jpg/320px-Ibuprofen_200mg_Tablets.jpg',
-  'Folic Acid 5mg':       'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Ibuprofen_200mg_Tablets.jpg/320px-Ibuprofen_200mg_Tablets.jpg',
-  'Ferrous Sulphate':     'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Ibuprofen_200mg_Tablets.jpg/320px-Ibuprofen_200mg_Tablets.jpg',
-  'Salbutamol Inhaler':   'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2b/Salbutamol_inhaler.jpg/320px-Salbutamol_inhaler.jpg',
-  'Insulin Mixtard 30':   'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/Insulin_vial.jpg/320px-Insulin_vial.jpg',
-  'Diazepam 5':           'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Ibuprofen_200mg_Tablets.jpg/320px-Ibuprofen_200mg_Tablets.jpg',
-  'Tramadol 50':          'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Amoxicillin_500mg_Capsules.jpg/320px-Amoxicillin_500mg_Capsules.jpg',
-  'Morphine Sulphate 10': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Ibuprofen_200mg_Tablets.jpg/320px-Ibuprofen_200mg_Tablets.jpg',
-  'Nivea Body Lotion':    'https://images.openfoodfacts.org/images/products/400/388/000/0015/front_en.200.jpg',
-  'Sunscreen SPF50':      'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/Voltaren_Emulgel.jpg/320px-Voltaren_Emulgel.jpg',
-  'Baby Diapers M':       'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/ORS_Sachet.jpg/320px-ORS_Sachet.jpg',
-  'Digital Thermometer':  'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/Digital_thermometer.jpg/320px-Digital_thermometer.jpg',
-  'BP Monitor Arm':       'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b3/Blood_pressure_monitor.jpg/320px-Blood_pressure_monitor.jpg',
-  'Glucometer Strips':    'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/Insulin_vial.jpg/320px-Insulin_vial.jpg',
+  'Panadol Extra':        'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a4/Panadol_Extra_Tablets_UK.jpg/320px-Panadol_Extra_Tablets_UK.jpg',
+  'Paracetamol Generic':  'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Paracetamol-tablets.jpg/320px-Paracetamol-tablets.jpg',
+  'Ibuprofen 400':        'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/Ibuprofen-tablets.jpg/320px-Ibuprofen-tablets.jpg',
+  'Diclofenac Gel':       'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Voltaren_Emulgel_100g.jpg/320px-Voltaren_Emulgel_100g.jpg',
+  'Diclofenac 50':        'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Voltaren_Emulgel_100g.jpg/320px-Voltaren_Emulgel_100g.jpg',
+  'Amoxil':               'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/Amoxicillin_Capsules.jpg/320px-Amoxicillin_Capsules.jpg',
+  'Amoxicillin Generic':  'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/Amoxicillin_Capsules.jpg/320px-Amoxicillin_Capsules.jpg',
+  'Augmentin 625':        'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/Amoxicillin_Capsules.jpg/320px-Amoxicillin_Capsules.jpg',
+  'Ciprofloxacin 500':    'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Ciprofloxacin_500mg_Tablets.jpg/320px-Ciprofloxacin_500mg_Tablets.jpg',
+  'Metronidazole 400':    'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Paracetamol-tablets.jpg/320px-Paracetamol-tablets.jpg',
+  'Coartem 80/480':       'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/Coartem.jpg/320px-Coartem.jpg',
+  'Lonart DS':            'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/Coartem.jpg/320px-Coartem.jpg',
+  'Malarone':             'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/Coartem.jpg/320px-Coartem.jpg',
+  'ORS Sachets':          'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b5/Oral_Rehydration_Salts_%28ORS%29_Packet.jpg/320px-Oral_Rehydration_Salts_%28ORS%29_Packet.jpg',
+  'Loperamide':           'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/Ibuprofen-tablets.jpg/320px-Ibuprofen-tablets.jpg',
+  'Omeprazole 20':        'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/Amoxicillin_Capsules.jpg/320px-Amoxicillin_Capsules.jpg',
+  'Gaviscon':             'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/Gaviscon_Advance_Liquid.jpg/320px-Gaviscon_Advance_Liquid.jpg',
+  'Metformin 500':        'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Paracetamol-tablets.jpg/320px-Paracetamol-tablets.jpg',
+  'Glibenclamide 5':      'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Paracetamol-tablets.jpg/320px-Paracetamol-tablets.jpg',
+  'Amlodipine 5':         'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Paracetamol-tablets.jpg/320px-Paracetamol-tablets.jpg',
+  'Lisinopril 10':        'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Paracetamol-tablets.jpg/320px-Paracetamol-tablets.jpg',
+  'Atorvastatin 20':      'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Paracetamol-tablets.jpg/320px-Paracetamol-tablets.jpg',
+  'Cetirizine 10':        'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Paracetamol-tablets.jpg/320px-Paracetamol-tablets.jpg',
+  'Benylin Cough Syrup':  'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/Gaviscon_Advance_Liquid.jpg/320px-Gaviscon_Advance_Liquid.jpg',
+  'Strepsils Lozenges':   'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Paracetamol-tablets.jpg/320px-Paracetamol-tablets.jpg',
+  'Vitamin C 1000':       'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Paracetamol-tablets.jpg/320px-Paracetamol-tablets.jpg',
+  'Multivitamin Daily':   'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Paracetamol-tablets.jpg/320px-Paracetamol-tablets.jpg',
+  'Folic Acid 5mg':       'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Paracetamol-tablets.jpg/320px-Paracetamol-tablets.jpg',
+  'Ferrous Sulphate':     'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Paracetamol-tablets.jpg/320px-Paracetamol-tablets.jpg',
+  'Salbutamol Inhaler':   'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Salbutamol_Inhaler.jpg/320px-Salbutamol_Inhaler.jpg',
+  'Insulin Mixtard 30':   'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/Insulin_Pen.jpg/320px-Insulin_Pen.jpg',
+  'Diazepam 5':           'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Paracetamol-tablets.jpg/320px-Paracetamol-tablets.jpg',
+  'Tramadol 50':          'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/Amoxicillin_Capsules.jpg/320px-Amoxicillin_Capsules.jpg',
+  'Morphine Sulphate 10': 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Paracetamol-tablets.jpg/320px-Paracetamol-tablets.jpg',
+  'Nivea Body Lotion':    'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/NIVEA_Creme_tin.jpg/320px-NIVEA_Creme_tin.jpg',
+  'Sunscreen SPF50':      'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/NIVEA_Creme_tin.jpg/320px-NIVEA_Creme_tin.jpg',
+  'Baby Diapers M':       'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b5/Oral_Rehydration_Salts_%28ORS%29_Packet.jpg/320px-Oral_Rehydration_Salts_%28ORS%29_Packet.jpg',
+  'Digital Thermometer':  'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6a/Clinical_thermometer_38.7.jpg/320px-Clinical_thermometer_38.7.jpg',
+  'BP Monitor Arm':       'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b6/Sphygmomanometer_aneroid.jpg/320px-Sphygmomanometer_aneroid.jpg',
+  'Glucometer Strips':    'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/Insulin_Pen.jpg/320px-Insulin_Pen.jpg',
 };
 
 const CATALOGUE = [
@@ -121,11 +121,13 @@ const CATALOGUE = [
   ['Glucometer Strips', 'Device', '50s', 'Strips', '50s', 'Devices', 'otc', 150, 105, 0.15, ['Diabetes'], '', { isDrug: false }],
 ];
 
+const SEED_VERSION = 4; // bump to force a re-seed on next deploy
+
 async function runSeed() {
   await mongoose.connection.dropDatabase();
   console.log('Seeding', config.mongoUri);
 
-  const org = await M.Organization.create({ name: 'MediCare Pharmacies', slug: 'medicare', plan: 'growth', dpcRegistration: 'DPC-2024-004217', settings: { purchasing: 'central' } });
+  const org = await M.Organization.create({ name: 'MediCare Pharmacies', slug: 'medicare', plan: 'growth', seedVersion: SEED_VERSION, dpcRegistration: 'DPC-2024-004217', settings: { purchasing: 'central' } });
   const zones = (a, b, c) => [{ name: 'Within 3 km', fee: a, etaMins: 45 }, { name: '3 - 8 km', fee: b, etaMins: 75 }, { name: 'Outer city', fee: c, etaMins: 120 }];
   const [acc, ksi, tkd] = await M.Branch.create([
     { org: org._id, name: 'Accra Central', code: 'ACC', address: '14 Oxford Street, Osu, Accra', phone: '+233 30 222 1001', email: 'accra@medicare.example', licenseNumber: 'PC/RP/ACC/0412', licenseExpiry: day(300), superintendent: 'Pharm. Ama Mensah', openingHours: 'Mon-Sat 8am-9pm, Sun 10am-6pm', taxId: 'C0012345678', receiptHeader: 'MediCare Pharmacy - Accra Central', location: { lat: 5.556, lng: -0.1969 }, deliveryZones: zones(10, 18, 30) },
@@ -186,56 +188,127 @@ async function runSeed() {
   }
 
   const customers = await M.Customer.create([
-    { org: org._id, name: 'Kwabena Asante', phone: '+233241112233', email: 'kwabena@example.com', allergies: ['Penicillin'], conditions: ['Hypertension'], consent: { communications: true, healthData: true, at: day(-60) }, addresses: [{ label: 'Home', line: 'House 22, Ridge Road, Accra', digitalAddress: 'GA-123-4567', zone: 'Within 3 km' }], loyaltyPoints: 120 },
-    { org: org._id, name: 'Adwoa Serwaa', phone: '+233205554433', email: 'adwoa@example.com', allergies: [], consent: { communications: true, healthData: true, at: day(-30) }, addresses: [{ label: 'Home', line: 'Adum, Kumasi', zone: 'Within 3 km' }] },
-    { org: org._id, name: 'Sunrise Clinic', phone: '+233302200100', email: 'accounts@sunrise.example', creditLimit: 5000, balance: 1350, consent: { communications: true, healthData: false, at: day(-90) } },
-    { org: org._id, name: 'Mohammed Issah', phone: '+233271234567', conditions: ['Diabetes'], consent: { communications: false, healthData: true, at: day(-10) } },
+    { org: org._id, name: 'Kwabena Asante', phone: '+233241112233', email: 'kwabena@example.com', allergies: ['Penicillin'], conditions: ['Hypertension', 'High Cholesterol'], consent: { communications: true, healthData: true, at: day(-60) }, addresses: [{ label: 'Home', line: 'House 22, Ridge Road, Accra', digitalAddress: 'GA-123-4567', zone: 'Within 3 km' }, { label: 'Office', line: '5th Floor, Accra Mall, Spintex Road', digitalAddress: 'GA-456-7890', zone: '3 - 8 km' }], loyaltyPoints: 340 },
+    { org: org._id, name: 'Adwoa Serwaa', phone: '+233205554433', email: 'adwoa@example.com', allergies: ['Sulfa'], conditions: ['Asthma'], consent: { communications: true, healthData: true, at: day(-30) }, addresses: [{ label: 'Home', line: 'Adum, Kumasi', zone: 'Within 3 km' }], loyaltyPoints: 80 },
+    { org: org._id, name: 'Sunrise Clinic', phone: '+233302200100', email: 'accounts@sunrise.example', creditLimit: 5000, balance: 1350, consent: { communications: true, healthData: false, at: day(-90) }, addresses: [{ label: 'Clinic', line: '12 Cantonments Road, Accra', digitalAddress: 'GA-200-1234', zone: 'Within 3 km' }] },
+    { org: org._id, name: 'Mohammed Issah', phone: '+233271234567', conditions: ['Diabetes', 'Hypertension'], consent: { communications: false, healthData: true, at: day(-10) }, addresses: [{ label: 'Home', line: 'Nima, Accra', digitalAddress: 'GA-789-0001', zone: '3 - 8 km' }], loyaltyPoints: 55 },
+    { org: org._id, name: 'Efua Mensah', phone: '+233244987654', email: 'efua.mensah@example.com', allergies: ['Aspirin'], conditions: ['Pregnancy'], consent: { communications: true, healthData: true, at: day(-14) }, addresses: [{ label: 'Home', line: 'East Legon, Accra', digitalAddress: 'GA-321-5678', zone: '3 - 8 km' }], loyaltyPoints: 20 },
+    { org: org._id, name: 'Kofi Boateng', phone: '+233208765432', email: 'kofi.b@example.com', allergies: [], conditions: ['Asthma', 'Allergy'], consent: { communications: true, healthData: true, at: day(-45) }, addresses: [{ label: 'Home', line: 'Kumasi, Nhyiaeso', zone: 'Within 3 km' }], loyaltyPoints: 160 },
+    { org: org._id, name: 'Ama Darko', phone: '+233277001122', email: 'ama.darko@example.com', allergies: [], conditions: [], consent: { communications: true, healthData: false, at: day(-7) }, addresses: [{ label: 'Home', line: 'Takoradi, Anaji', zone: 'Within 3 km' }], loyaltyPoints: 0 },
+    { org: org._id, name: 'St. Anthony Clinic', phone: '+233322045678', email: 'pharmacy@stanthony.example', creditLimit: 8000, balance: 2200, consent: { communications: true, healthData: false, at: day(-120) }, addresses: [{ label: 'Clinic', line: 'Adum, Kumasi', zone: 'Within 3 km' }] },
   ]);
 
   await M.Ledger.create({ org: org._id, customer: customers[2]._id, type: 'charge', amount: 1350, ref: 'Opening balance', by: owner._id });
+  await M.Ledger.create({ org: org._id, customer: customers[7]._id, type: 'charge', amount: 2200, ref: 'Opening balance', by: owner._id });
 
-  // Sales history for dashboards (stock is not touched; this is back-dated reporting data).
+  // Sales history for dashboards — 30 days, realistic volumes, mixed payments, loyalty redemptions
   const sellable = products.filter((p) => p.legalStatus !== 'controlled' && p.legalStatus !== 'prescription_only');
   const cashiers = [owner, mgr, pharm];
-  for (let d = 13; d >= 0; d--) {
+  let receiptSeq = 1;
+  for (let d = 29; d >= 0; d--) {
     for (const br of branches) {
-      const count = rnd(br === acc ? 12 : 6, br === acc ? 24 : 14);
+      // Accra busiest, weekends slightly higher, Takoradi quietest
+      const isWeekend = [0, 6].includes(new Date(Date.now() - d * 86400000).getDay());
+      const base = br === acc ? (isWeekend ? 22 : 16) : br === ksi ? (isWeekend ? 14 : 10) : (isWeekend ? 9 : 6);
+      const count = rnd(base - 2, base + 4);
       for (let n = 0; n < count; n++) {
-        const lines = Array.from({ length: rnd(1, 4) }, () => pick(sellable)).map((p) => ({ p, qty: rnd(1, 3) }));
+        const lines = Array.from({ length: rnd(1, 5) }, () => pick(sellable)).map((p) => ({ p, qty: rnd(1, 4) }));
+        const useLoyalty = n % 15 === 0; // every ~15th sale redeems loyalty points
+        const useDiscount = n % 8 === 0;  // every ~8th sale has a small discount
         const items = lines.map(({ p, qty }) => ({ product: p._id, name: `${p.brand} ${p.strength || ''}`.trim(), qty, unitPrice: p.price, taxRate: p.taxRate, tax: round2(p.price * qty * p.taxRate), lineTotal: round2(p.price * qty), cost: p.cost, lots: [] }));
         const subtotal = round2(items.reduce((s, i) => s + i.lineTotal, 0));
         const tax = round2(items.reduce((s, i) => s + i.tax, 0));
-        const at = new Date(); at.setDate(at.getDate() - d); at.setHours(rnd(8, 19), rnd(0, 59));
+        const discount = useDiscount ? round2(subtotal * 0.05) : 0;
+        const pointsRedeemed = useLoyalty ? 50 : 0;
+        const loyaltyValue = round2(pointsRedeemed * 0.1);
+        const total = round2(subtotal + tax - discount - loyaltyValue);
+        const pointsEarned = round2(total * 0.1);
+        const method = pick(['cash', 'cash', 'cash', 'momo', 'momo', 'card', 'credit']);
+        const payments = useLoyalty
+          ? [{ method: 'loyalty', amount: loyaltyValue }, { method: pick(['cash', 'momo']), amount: round2(total - loyaltyValue) }]
+          : [{ method, amount: total }];
+        const at = new Date(); at.setDate(at.getDate() - d); at.setHours(rnd(8, 20), rnd(0, 59));
         if (at > new Date()) at.setTime(Date.now() - rnd(1, 60) * 60000);
-        await M.Sale.create({ org: org._id, branch: br._id, receiptNo: `R-SEED-${d}-${br.code}-${n}`, cashier: pick(cashiers)._id, channel: 'pos', items, subtotal, tax, total: round2(subtotal + tax), payments: [{ method: pick(['cash', 'cash', 'momo', 'card']), amount: round2(subtotal + tax) }], createdAt: at });
+        await M.Sale.create({ org: org._id, branch: br._id, receiptNo: `R-${br.code}-${String(receiptSeq++).padStart(5, '0')}`, cashier: pick(cashiers)._id, channel: 'pos', items, subtotal, tax, discount, total, payments, pointsEarned, pointsRedeemed, createdAt: at });
       }
     }
   }
 
   const byBrand = (b) => products.find((p) => p.brand === b);
-  // Prescriptions: one to verify (allergy warning!), one ready to dispense, one controlled.
+
   await M.Prescription.create([
+    // RX-001: pending verification — has allergy warning (Penicillin + Amoxil)
     { org: org._id, branch: acc._id, rxNo: 'RX-DEMO-001', customer: customers[0]._id, patientName: customers[0].name, prescriber: { name: 'Dr. Kofi Adjei', regNo: 'MDC/12345', facility: 'Ridge Hospital' }, items: [{ product: byBrand('Amoxil')._id, name: 'Amoxil', dose: '500mg', frequency: '3 times daily', duration: '7 days', qty: 21 }, { product: byBrand('Amlodipine 5')._id, name: 'Amlodipine 5', dose: '5mg', frequency: 'Once daily', duration: '30 days', qty: 30 }], refillsAllowed: 1 },
-    { org: org._id, branch: acc._id, rxNo: 'RX-DEMO-002', customer: customers[3]._id, patientName: customers[3].name, prescriber: { name: 'Dr. Efua Danso', regNo: 'MDC/22871', facility: 'Osu Polyclinic' }, items: [{ product: byBrand('Metformin 500')._id, name: 'Metformin 500', dose: '500mg', frequency: 'Twice daily', duration: '5 days', qty: 10 }], refillsAllowed: 1, insurance: { scheme: 'NHIS', memberNo: 'NHIS-0045123', copay: 2 }, status: 'verified', verifiedBy: pharm._id, verifiedAt: new Date() },
+    // RX-002: verified, ready to dispense — NHIS insurance
+    { org: org._id, branch: acc._id, rxNo: 'RX-DEMO-002', customer: customers[3]._id, patientName: customers[3].name, prescriber: { name: 'Dr. Efua Danso', regNo: 'MDC/22871', facility: 'Osu Polyclinic' }, items: [{ product: byBrand('Metformin 500')._id, name: 'Metformin 500', dose: '500mg', frequency: 'Twice daily', duration: '30 days', qty: 60 }, { product: byBrand('Amlodipine 5')._id, name: 'Amlodipine 5', dose: '5mg', frequency: 'Once daily', duration: '30 days', qty: 30 }], refillsAllowed: 2, insurance: { scheme: 'NHIS', memberNo: 'NHIS-0045123', copay: 2 }, status: 'verified', verifiedBy: pharm._id, verifiedAt: new Date() },
+    // RX-003: controlled drug — verified, paper original sighted
     { org: org._id, branch: acc._id, rxNo: 'RX-DEMO-003', patientName: 'Nana Ama Boakye', prescriber: { name: 'Dr. Yaa Frimpong', regNo: 'MDC/30112', facility: 'Korle Bu Teaching Hospital', address: 'Korle Bu, Accra' }, items: [{ product: byBrand('Diazepam 5')._id, name: 'Diazepam 5', dose: '5mg', frequency: 'At night', duration: '14 days', qty: 14 }], hasControlled: true, paperOriginalSeen: true, status: 'verified', verifiedBy: pharm._id, verifiedAt: new Date() },
+    // RX-004: online upload — pending review
+    { org: org._id, branch: acc._id, rxNo: 'RX-DEMO-004', customer: customers[1]._id, patientName: customers[1].name, prescriber: { name: 'As on uploaded prescription' }, source: 'online', items: [{ product: byBrand('Ciprofloxacin 500')._id, name: 'Ciprofloxacin 500', qty: 10 }] },
+    // RX-005: partially dispensed — 1 refill used
+    { org: org._id, branch: acc._id, rxNo: 'RX-DEMO-005', customer: customers[4]._id, patientName: customers[4].name, prescriber: { name: 'Dr. Samuel Acheampong', regNo: 'MDC/18844', facility: 'Legon Hospital' }, items: [{ product: byBrand('Salbutamol Inhaler')._id, name: 'Salbutamol Inhaler', dose: '2 puffs', frequency: 'As needed', duration: '90 days', qty: 2, dispensedQty: 1 }], refillsAllowed: 2, refillsUsed: 1, status: 'partial', verifiedBy: pharm._id, verifiedAt: day(-30) },
+    // RX-006: Kumasi branch — verified, diabetes management
+    { org: org._id, branch: ksi._id, rxNo: 'RX-DEMO-006', customer: customers[5]._id, patientName: customers[5].name, prescriber: { name: 'Dr. Abena Frimpong', regNo: 'MDC/27654', facility: 'Komfo Anokye Teaching Hospital' }, items: [{ product: byBrand('Metformin 500')._id, name: 'Metformin 500', dose: '500mg', frequency: 'Twice daily', duration: '30 days', qty: 60 }, { product: byBrand('Glibenclamide 5')._id, name: 'Glibenclamide 5', dose: '5mg', frequency: 'Once daily', duration: '30 days', qty: 30 }], refillsAllowed: 3, insurance: { scheme: 'NHIS', memberNo: 'NHIS-0078456', copay: 0 }, status: 'verified', verifiedBy: pharm._id, verifiedAt: new Date() },
+    // RX-007: rejected — incomplete prescriber details
+    { org: org._id, branch: acc._id, rxNo: 'RX-DEMO-007', patientName: 'Unknown Patient', prescriber: { name: 'Dr. Unknown' }, items: [{ product: byBrand('Tramadol 50')._id, name: 'Tramadol 50', qty: 20 }], hasControlled: true, status: 'rejected', rejectedReason: 'Prescriber registration number missing and paper original not presented.' },
   ]);
 
-  // A running medication reminder plan for the demo (Kwabena consented to messages and health data).
-  await M.ReminderPlan.create({ org: org._id, customer: customers[0]._id, branch: acc._id, product: byBrand('Amlodipine 5')._id, medicine: 'Amlodipine 5mg', dose: '1 tablet', times: ['08:00', '20:00'], startDate: day(-3), endDate: day(27), refill: false, createdBy: pharm.name });
+  // Reminder plan for Kwabena (consented, on Amlodipine long-term)
+  await M.ReminderPlan.create({ org: org._id, customer: customers[0]._id, branch: acc._id, product: byBrand('Amlodipine 5')._id, medicine: 'Amlodipine 5mg', dose: '1 tablet', times: ['08:00'], startDate: day(-3), endDate: day(27), refill: true, createdBy: pharm.name });
+  // Reminder plan for Efua (pregnant, on Folic Acid)
+  await M.ReminderPlan.create({ org: org._id, customer: customers[4]._id, branch: acc._id, product: byBrand('Folic Acid 5mg')._id, medicine: 'Folic Acid 5mg', dose: '1 tablet', times: ['07:00'], startDate: day(-14), endDate: day(76), refill: false, createdBy: pharm.name });
 
-  // Online orders in different states.
-  const rxOrderRx = await M.Prescription.create({ org: org._id, branch: acc._id, rxNo: 'RX-DEMO-004', customer: customers[1]._id, patientName: customers[1].name, prescriber: { name: 'As on uploaded prescription' }, source: 'online', items: [{ product: byBrand('Ciprofloxacin 500')._id, name: 'Ciprofloxacin 500', qty: 10 }] });
+  const rxOrderRx = await M.Prescription.findOne({ org: org._id, rxNo: 'RX-DEMO-004' });
   const mkItem = (p, qty, rx = false) => ({ product: p._id, name: `${p.brand} ${p.strength || ''}`.trim(), qty, unitPrice: p.price, taxRate: p.taxRate, requiresRx: rx });
+  const rider = await M.User.findOne({ org: org._id, role: 'dispatcher' });
+
   await M.Order.create([
-    { org: org._id, branch: acc._id, orderNo: 'ON-DEMO-001', customer: customers[0]._id, items: [mkItem(byBrand('Panadol Extra'), 2), mkItem(byBrand('ORS Sachets'), 3)], fulfilment: 'delivery', address: { line: 'House 22, Ridge Road, Accra', digitalAddress: 'GA-123-4567' }, deliveryFee: 0, subtotal: 81, tax: 0, total: 81, payment: { method: 'momo', status: 'paid', reference: 'PAY-DEMO1' }, status: 'received', history: [{ status: 'received', by: 'customer' }] },
-    { org: org._id, branch: acc._id, orderNo: 'ON-DEMO-002', customer: customers[1]._id, prescription: rxOrderRx._id, items: [mkItem(byBrand('Ciprofloxacin 500'), 10, true), mkItem(byBrand('Vitamin C 1000'), 1)], fulfilment: 'pickup', deliveryFee: 0, subtotal: 75, tax: 0, total: 75, payment: { method: 'card', status: 'paid', reference: 'PAY-DEMO2' }, status: 'pending_review', history: [{ status: 'pending_review', by: 'customer' }] },
-    { org: org._id, branch: acc._id, orderNo: 'ON-DEMO-003', customer: customers[3]._id, items: [mkItem(byBrand('Glucometer Strips'), 1)], fulfilment: 'delivery', address: { line: 'Labone, Accra' }, deliveryFee: 0, subtotal: 150, tax: 22.5, total: 172.5, payment: { method: 'cod', status: 'pending' }, status: 'packed', stockReserved: false, history: [{ status: 'received', by: 'customer' }, { status: 'approved', by: 'Pharm. Ama Mensah' }, { status: 'packed', by: 'Kofi Technician' }] },
+    // received — just placed, awaiting review
+    { org: org._id, branch: acc._id, orderNo: 'ON-DEMO-001', customer: customers[0]._id, items: [mkItem(byBrand('Panadol Extra'), 2), mkItem(byBrand('ORS Sachets'), 3)], fulfilment: 'delivery', address: { line: 'House 22, Ridge Road, Accra', digitalAddress: 'GA-123-4567', zone: 'Within 3 km' }, deliveryFee: 10, subtotal: 81, tax: 0, total: 91, payment: { method: 'momo', status: 'paid', reference: 'PAY-DEMO1' }, status: 'received', history: [{ status: 'received', by: 'customer', note: 'Placed via portal' }] },
+    // pending_review — has prescription attachment
+    { org: org._id, branch: acc._id, orderNo: 'ON-DEMO-002', customer: customers[1]._id, prescription: rxOrderRx._id, items: [mkItem(byBrand('Ciprofloxacin 500'), 10, true), mkItem(byBrand('Vitamin C 1000'), 1)], fulfilment: 'pickup', deliveryFee: 0, subtotal: 75, tax: 0, total: 75, payment: { method: 'card', status: 'paid', reference: 'PAY-DEMO2' }, status: 'pending_review', history: [{ status: 'received', by: 'customer' }, { status: 'pending_review', by: 'Esi Cashier', note: 'Prescription needs pharmacist review' }] },
+    // approved — stock reserved, awaiting packing
+    { org: org._id, branch: acc._id, orderNo: 'ON-DEMO-003', customer: customers[3]._id, items: [mkItem(byBrand('Metformin 500'), 2), mkItem(byBrand('Glucometer Strips'), 1)], fulfilment: 'delivery', address: { line: 'Nima, Accra', digitalAddress: 'GA-789-0001', zone: '3 - 8 km' }, deliveryFee: 18, subtotal: 200, tax: 0, total: 218, payment: { method: 'momo', status: 'paid', reference: 'PAY-DEMO3' }, status: 'approved', stockReserved: true, history: [{ status: 'received', by: 'customer' }, { status: 'approved', by: 'Pharm. Ama Mensah', note: 'Stock confirmed' }] },
+    // packed — ready for rider pickup
+    { org: org._id, branch: acc._id, orderNo: 'ON-DEMO-004', customer: customers[4]._id, items: [mkItem(byBrand('Folic Acid 5mg'), 2), mkItem(byBrand('Multivitamin Daily'), 1), mkItem(byBrand('Ferrous Sulphate'), 1)], fulfilment: 'delivery', address: { line: 'East Legon, Accra', digitalAddress: 'GA-321-5678', zone: '3 - 8 km' }, deliveryFee: 18, subtotal: 68, tax: 0, total: 86, payment: { method: 'cod', status: 'pending' }, status: 'packed', stockReserved: true, history: [{ status: 'received', by: 'customer' }, { status: 'approved', by: 'Pharm. Ama Mensah' }, { status: 'packed', by: 'Kofi Technician', note: 'Packed and labelled' }] },
+    // out_for_delivery — rider assigned, delivery code set
+    { org: org._id, branch: acc._id, orderNo: 'ON-DEMO-005', customer: customers[5]._id, items: [mkItem(byBrand('Cetirizine 10'), 2), mkItem(byBrand('Benylin Cough Syrup'), 1)], fulfilment: 'delivery', address: { line: 'Kumasi, Nhyiaeso', zone: 'Within 3 km' }, deliveryFee: 8, subtotal: 62, tax: 0, total: 70, payment: { method: 'momo', status: 'paid', reference: 'PAY-DEMO5' }, status: 'out_for_delivery', stockReserved: true, deliveryCode: '7842', rider: { user: rider._id, name: 'Kojo Rider', phone: '+233244000001', external: false }, history: [{ status: 'received', by: 'customer' }, { status: 'approved', by: 'Pharm. Ama Mensah' }, { status: 'packed', by: 'Kofi Technician' }, { status: 'out_for_delivery', by: 'Kojo Rider', note: 'En route' }] },
+    // delivered — completed with proof
+    { org: org._id, branch: acc._id, orderNo: 'ON-DEMO-006', customer: customers[0]._id, items: [mkItem(byBrand('Vitamin C 1000'), 2), mkItem(byBrand('Strepsils Lozenges'), 1)], fulfilment: 'delivery', address: { line: 'House 22, Ridge Road, Accra', digitalAddress: 'GA-123-4567', zone: 'Within 3 km' }, deliveryFee: 10, subtotal: 100, tax: 0, total: 110, payment: { method: 'momo', status: 'paid', reference: 'PAY-DEMO6' }, status: 'delivered', stockReserved: false, proof: { recipient: 'Kwabena Asante', at: day(-1) }, history: [{ status: 'received', by: 'customer' }, { status: 'approved', by: 'Pharm. Ama Mensah' }, { status: 'packed', by: 'Kofi Technician' }, { status: 'out_for_delivery', by: 'Kojo Rider' }, { status: 'delivered', by: 'Kojo Rider', note: 'Received by customer' }] },
+    // cancelled — customer changed mind before packing
+    { org: org._id, branch: acc._id, orderNo: 'ON-DEMO-007', customer: customers[6]._id, items: [mkItem(byBrand('Digital Thermometer'), 1)], fulfilment: 'pickup', deliveryFee: 0, subtotal: 45, tax: 6.75, total: 51.75, payment: { method: 'cod', status: 'pending' }, status: 'cancelled', stockReserved: false, history: [{ status: 'received', by: 'customer' }, { status: 'cancelled', by: 'customer', note: 'Customer cancelled before packing' }] },
+    // Kumasi branch — pickup, approved
+    { org: org._id, branch: ksi._id, orderNo: 'ON-DEMO-008', customer: customers[5]._id, items: [mkItem(byBrand('Omeprazole 20'), 2), mkItem(byBrand('Gaviscon'), 1)], fulfilment: 'pickup', deliveryFee: 0, subtotal: 104, tax: 0, total: 104, payment: { method: 'card', status: 'paid', reference: 'PAY-DEMO8' }, status: 'approved', stockReserved: true, history: [{ status: 'received', by: 'customer' }, { status: 'approved', by: 'Pharm. Kwame Boateng' }] },
   ]);
 
-  // Purchase order awaiting receipt and a transfer request.
-  await M.PurchaseOrder.create({ org: org._id, branch: acc._id, poNo: 'PO-DEMO-001', supplier: suppliers[0]._id, items: [{ product: byBrand('Amoxil')._id, name: 'Amoxil', qty: 200, cost: 28 }, { product: byBrand('Coartem 80/480')._id, name: 'Coartem 80/480', qty: 150, cost: 34 }], total: round2(200 * 28 + 150 * 34), status: 'sent', createdBy: store._id, approvedBy: mgr._id });
-  await M.PurchaseOrder.create({ org: org._id, branch: acc._id, poNo: 'PO-DEMO-002', supplier: suppliers[1]._id, items: [{ product: byBrand('Gaviscon')._id, name: 'Gaviscon', qty: 60, cost: 31 }], total: 1860, status: 'draft', createdBy: store._id });
+  // Promotions: percent, fixed and BOGO across categories, branches and channels
+  await M.Promotion.create([
+    // Sitewide OTC weekend deal (online only)
+    { org: org._id, name: 'Weekend OTC Sale', type: 'percent', value: 10, categories: ['Pain & Fever', 'Allergy & Cold', 'Stomach & Digestion'], branches: [], channel: 'online', startsAt: day(0), endsAt: day(2), active: true },
+    // Vitamins bundle push (all branches, both channels)
+    { org: org._id, name: 'Vitamins Combo Deal', type: 'percent', value: 15, categories: ['Vitamins'], branches: [], channel: 'both', startsAt: day(-7), endsAt: day(14), active: true },
+    // GHS 5 off Panadol Extra at Accra (POS only, drives footfall)
+    { org: org._id, name: 'Panadol Extra In-Store Offer', type: 'fixed', value: 5, products: [byBrand('Panadol Extra')._id], branches: [acc._id], channel: 'pos', startsAt: day(-3), endsAt: day(4), active: true },
+    // Buy 2 get 1 free on ORS Sachets (all branches, both channels — malaria/diarrhoea season)
+    { org: org._id, name: 'ORS Buy 2 Get 1 Free', type: 'bogo', buyQty: 2, getQty: 1, products: [byBrand('ORS Sachets')._id], branches: [], channel: 'both', startsAt: day(-5), endsAt: day(10), active: true },
+    // Devices clearance at Takoradi (POS only)
+    { org: org._id, name: 'Takoradi Devices Clearance', type: 'percent', value: 20, categories: ['Devices'], branches: [tkd._id], channel: 'pos', startsAt: day(-1), endsAt: day(6), active: true },
+    // Expired promo (shows in history)
+    { org: org._id, name: 'New Year Wellness Promo', type: 'percent', value: 12, categories: ['Vitamins', 'Cosmetics'], branches: [], channel: 'both', startsAt: day(-30), endsAt: day(-15), active: false },
+  ]);
+  await M.PurchaseOrder.create({ org: org._id, branch: acc._id, poNo: 'PO-DEMO-001', supplier: suppliers[0]._id, items: [{ product: byBrand('Amoxil')._id, name: 'Amoxil', qty: 200, cost: 28, receivedQty: 200 }, { product: byBrand('Coartem 80/480')._id, name: 'Coartem 80/480', qty: 150, cost: 34, receivedQty: 150 }], total: round2(200 * 28 + 150 * 34), status: 'received', createdBy: store._id, approvedBy: mgr._id, receipts: [{ at: day(-10), by: store._id, invoiceNo: 'INV-KP-20241', invoiceTotal: round2(200 * 28 + 150 * 34), receivedValue: round2(200 * 28 + 150 * 34), mismatch: false }] });
+  await M.PurchaseOrder.create({ org: org._id, branch: acc._id, poNo: 'PO-DEMO-002', supplier: suppliers[1]._id, items: [{ product: byBrand('Gaviscon')._id, name: 'Gaviscon', qty: 60, cost: 31, receivedQty: 50 }, { product: byBrand('Omeprazole 20')._id, name: 'Omeprazole 20', qty: 100, cost: 15, receivedQty: 100 }], total: round2(60 * 31 + 100 * 15), status: 'partial', createdBy: store._id, approvedBy: mgr._id, receipts: [{ at: day(-5), by: store._id, invoiceNo: 'INV-EC-8821', invoiceTotal: round2(50 * 31 + 100 * 15), receivedValue: round2(50 * 31 + 100 * 15), mismatch: true }] });
+  await M.PurchaseOrder.create({ org: org._id, branch: acc._id, poNo: 'PO-DEMO-003', supplier: suppliers[0]._id, items: [{ product: byBrand('Ciprofloxacin 500')._id, name: 'Ciprofloxacin 500', qty: 120, cost: 24 }, { product: byBrand('Metronidazole 400')._id, name: 'Metronidazole 400', qty: 200, cost: 11 }], total: round2(120 * 24 + 200 * 11), status: 'sent', createdBy: store._id, approvedBy: mgr._id });
+  await M.PurchaseOrder.create({ org: org._id, branch: acc._id, poNo: 'PO-DEMO-004', supplier: suppliers[2]._id, items: [{ product: byBrand('Insulin Mixtard 30')._id, name: 'Insulin Mixtard 30', qty: 30, cost: 85 }, { product: byBrand('Glucometer Strips')._id, name: 'Glucometer Strips', qty: 50, cost: 105 }], total: round2(30 * 85 + 50 * 105), status: 'approved', createdBy: store._id, approvedBy: mgr._id });
+  await M.PurchaseOrder.create({ org: org._id, branch: acc._id, poNo: 'PO-DEMO-005', supplier: suppliers[1]._id, items: [{ product: byBrand('Panadol Extra')._id, name: 'Panadol Extra', qty: 300, cost: 11 }, { product: byBrand('Ibuprofen 400')._id, name: 'Ibuprofen 400', qty: 150, cost: 13 }], total: round2(300 * 11 + 150 * 13), status: 'draft', createdBy: store._id });
+  await M.PurchaseOrder.create({ org: org._id, branch: ksi._id, poNo: 'PO-DEMO-006', supplier: suppliers[0]._id, items: [{ product: byBrand('Coartem 80/480')._id, name: 'Coartem 80/480', qty: 100, cost: 34 }, { product: byBrand('Lonart DS')._id, name: 'Lonart DS', qty: 80, cost: 26 }], total: round2(100 * 34 + 80 * 26), status: 'sent', createdBy: store._id, approvedBy: owner._id });
+  await M.PurchaseOrder.create({ org: org._id, branch: tkd._id, poNo: 'PO-DEMO-007', supplier: suppliers[2]._id, items: [{ product: byBrand('Amoxil')._id, name: 'Amoxil', qty: 100, cost: 28 }, { product: byBrand('Augmentin 625')._id, name: 'Augmentin 625', qty: 50, cost: 66 }], total: round2(100 * 28 + 50 * 66), status: 'approved', createdBy: store._id, approvedBy: owner._id });
+
+  // Stock transfers: requested, in transit, received, rejected
   await M.StockTransfer.create({ org: org._id, ref: 'TR-DEMO-001', from: acc._id, to: tkd._id, status: 'requested', items: [{ product: byBrand('Amoxil')._id, name: 'Amoxil', qty: 40 }], requestedBy: owner._id, note: 'Takoradi out of Amoxil' });
+  await M.StockTransfer.create({ org: org._id, ref: 'TR-DEMO-002', from: acc._id, to: ksi._id, status: 'in_transit', items: [{ product: byBrand('Panadol Extra')._id, name: 'Panadol Extra', qty: 60 }, { product: byBrand('ORS Sachets')._id, name: 'ORS Sachets', qty: 30 }], requestedBy: mgr._id, approvedBy: owner._id, note: 'Kumasi running low on OTC stock' });
+  await M.StockTransfer.create({ org: org._id, ref: 'TR-DEMO-003', from: ksi._id, to: tkd._id, status: 'received', items: [{ product: byBrand('Coartem 80/480')._id, name: 'Coartem 80/480', qty: 20, receivedQty: 20 }], requestedBy: owner._id, approvedBy: owner._id, receivedBy: store._id, note: 'Malaria season top-up' });
+  await M.StockTransfer.create({ org: org._id, ref: 'TR-DEMO-004', from: tkd._id, to: acc._id, status: 'rejected', items: [{ product: byBrand('Ibuprofen 400')._id, name: 'Ibuprofen 400', qty: 50 }], requestedBy: store._id, note: 'Rejected: Takoradi also low on stock' });
 
   console.log('\nDemo ready. Sign in with password', PASSWORD);
   console.log('  owner@demo.com           Owner, all branches');
@@ -246,7 +319,7 @@ async function runSeed() {
   console.log('Customer portal: /shop/medicare   (OTP code is', config.otpDemoCode + ')');
 }
 
-module.exports = { runSeed };
+module.exports = { runSeed, SEED_VERSION };
 
 // Run directly: node src/seed.js
 if (require.main === module) {

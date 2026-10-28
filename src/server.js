@@ -7,10 +7,10 @@ mongoose.connect(config.mongoUri)
     // Auto-seed on first deploy: if no org exists and DEMO_MODE is on, seed the demo data.
     if (config.demoMode) {
       const { Organization } = require('./models');
-      const exists = await Organization.countDocuments().limit(1);
-      if (!exists) {
-        console.log('Empty database detected — running demo seed...');
-        const { runSeed } = require('./seed');
+      const { runSeed, SEED_VERSION } = require('./seed');
+      const org = await Organization.findOne({}, 'seedVersion').lean();
+      if (!org || (org.seedVersion || 0) < SEED_VERSION) {
+        console.log(`Seed version ${org?.seedVersion || 0} < ${SEED_VERSION} — running demo seed...`);
         await runSeed();
       }
     }
