@@ -120,6 +120,13 @@ const login = async (email) => { const d = ok(await call('/auth/login', { body: 
   const mo = ok(await call('/customers?q=Mohammed', { token: owner.token }))[0];
   await step('reminder test reaches a consenting patient', async () => { const pl = ok(await call('/reminders', { token: pharm.token, branch: acc, body: { customer: kw._id, medicine: 'Amlodipine 5mg', times: ['21:00', '09:00'], days: 30 } }), 201); if (pl.times.join() !== '09:00,21:00') throw new Error('times not sorted'); const t = ok(await call(`/reminders/${pl._id}/test`, { token: pharm.token, branch: acc, body: {} })); if (t.status !== 'sent' || !/Amlodipine/.test(t.message)) throw new Error(JSON.stringify(t)); });
   await step('no reminder sent without consent', async () => { const plans = ok(await call(`/customers/${mo._id}/reminders`, { token: pharm.token, branch: acc })); const t = ok(await call(`/reminders/${plans[0]._id}/test`, { token: pharm.token, branch: acc, body: {} })); if (t.status !== 'skipped') throw new Error(JSON.stringify(t)); });
+  await step('all reminders list flags patients without SMS consent', async () => {
+    const all = ok(await call('/reminders', { token: pharm.token, branch: acc }));
+    const a = all.find((p) => p.medicine === 'Amlodipine 5mg'); if (!a || a.canSend !== true || a.sentCount !== 0 || a.customer.name !== kw.name) throw new Error(JSON.stringify(a));
+    if (all.some((p) => String(p.customer._id) === String(mo._id) && p.canSend)) throw new Error('no-consent patient marked as sendable');
+    ok(await call('/reminders?status=ended', { token: pharm.token, branch: acc }));
+    ok(await call('/reminders', { token: cashier.token, branch: acc }), 403);
+  });
   await step('bad reminder time rejected', async () => { ok(await call('/reminders', { token: pharm.token, branch: acc, body: { customer: kw._id, medicine: 'X', times: ['25:00'] } }), 400); });
   await step('patient pauses own reminder in the portal', async () => {
     ok(await call('/reminders', { token: pharm.token, branch: acc, body: { customer: cust.customer._id, medicine: 'Vitamin C', times: ['08:00'] } }), 201);
