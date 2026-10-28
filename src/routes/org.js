@@ -1,5 +1,6 @@
 const router = require('express').Router();
-const { Organization, Branch, User, ROLES } = require('../models');
+const { Organization, Branch, User, SiteImage, ROLES } = require('../models');
+const { parseImage } = require('../services/images');
 const { wrap, bad, notFound, forbidden } = require('../utils/http');
 const { staff, roles, writable } = require('../middleware/auth');
 const { audit } = require('../services/audit');
@@ -15,6 +16,53 @@ router.patch('/org', roles(), writable, wrap(async (req, res) => {
   await org.save();
   await audit(req, 'org.update', 'Organization', org._id, 'Organisation settings updated', { before, after: org.toObject() });
   res.json(org);
+}));
+
+/* ---- Website ---- */
+// Images must be ones uploaded here, or https links; text is trimmed and capped so a page can't be flooded.
+const SITE_IMG = /^\/images\/site\/[a-f0-9]{24}$/;
+const imageUrl = (v) => {
+  const s = String(v || '').trim();
+  if (!s) return undefined;
+  if (!SITE_IMG.test(s) && !/^https:\/\/\S+$/i.test(s)) throw bad('Images must be uploaded, or links starting with https://');
+  return s;
+};
+const text = (v, max) => { const s = String(v ?? '').trim(); if (s.length > max) throw bad(`Keep text under ${max} characters`); return s || undefined; };
+const link = (v) => { const s = text(v, 200); if (s && !/^https:\/\/\S+$/i.test(s)) throw bad('Social links must start with https://'); return s; };
+
+router.get('/org/website', wrap(async (req, res) => res.json((await Organization.findById(req.orgId, 'website').lean()).website || {})));
+
+router.patch('/org/website', roles('branch_manager'), writable, wrap(async (req, res) => {
+  const b = req.body || {};
+  const org = await Organization.findById(req.orgId);
+  const color = String(b.brandColor || '').trim();
+  if (color && !/^#[0-9a-f]{6}$/i.test(color)) throw bad('Brand colour must look like #1f5c4d');
+  const services = (Array.isArray(b.services) ? b.services : []).map((x) => ({ title: text(x?.title, 60), text: text(x?.text, 240) })).filter((x) => x.title);
+  if (services.length > 8) throw bad('At most 8 services');
+  const gallery = (Array.isArray(b.gallery) ? b.gallery : []).map(imageUrl).filter(Boolean);
+  if (gallery.length > 8) throw bad('At most 8 gallery photos');
+  org.website = {
+    published: b.published !== false,
+    brandColor: color || undefined,
+    logoUrl: imageUrl(b.logoUrl), heroImageUrl: imageUrl(b.heroImageUrl), aboutImageUrl: imageUrl(b.aboutImageUrl),
+    headline: text(b.headline, 90), intro: text(b.intro, 300), about: text(b.about, 2000),
+    services, gallery,
+    contact: { phone: text(b.contact?.phone, 30), whatsapp: text(b.contact?.whatsapp, 30), email: text(b.contact?.email, 120) },
+    social: { facebook: link(b.social?.facebook), instagram: link(b.social?.instagram), tiktok: link(b.social?.tiktok), x: link(b.social?.x) },
+    showProducts: b.showProducts !== false,
+  };
+  await org.save();
+  // Remove uploads the site no longer uses (older than a day, so an upload waiting to be saved is kept).
+  const used = [org.website.logoUrl, org.website.heroImageUrl, org.website.aboutImageUrl, ...gallery].filter((u) => u && SITE_IMG.test(u)).map((u) => u.split('/').pop());
+  await SiteImage.deleteMany({ org: req.orgId, _id: { $nin: used }, createdAt: { $lt: new Date(Date.now() - 86400000) } });
+  await audit(req, 'website.update', 'Organization', org._id, `Website ${org.website.published ? 'updated' : 'updated and hidden'}`);
+  res.json(org.toObject().website);
+}));
+
+router.post('/org/website/images', roles('branch_manager'), writable, wrap(async (req, res) => {
+  if ((await SiteImage.countDocuments({ org: req.orgId })) >= 40) throw bad('Too many website photos. Save the website to clear unused ones, then try again.');
+  const img = await SiteImage.create({ org: req.orgId, ...parseImage(req.body.image) });
+  res.status(201).json({ url: `/images/site/${img._id}` });
 }));
 
 /* ---- Branches ---- */

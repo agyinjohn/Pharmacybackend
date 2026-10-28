@@ -120,7 +120,17 @@ router.post('/orders/:id/message', customer, wrap(async (req, res) => {
 /* ---- Slug-scoped ---- */
 router.get('/:slug', loadOrg, wrap(async (req, res) => {
   const branches = await Branch.find({ org: req.orgId, active: true }).sort('name');
-  res.json({ name: req.org.name, slug: req.org.slug, dpcRegistration: req.org.dpcRegistration, codEnabled: req.org.settings.codEnabled, branches: branches.map(branchPublic) });
+  const w = req.org.website || {};
+  res.json({ name: req.org.name, slug: req.org.slug, dpcRegistration: req.org.dpcRegistration, codEnabled: req.org.settings.codEnabled, branches: branches.map(branchPublic), website: { published: w.published !== false, logoUrl: w.logoUrl, brandColor: w.brandColor } });
+}));
+
+// Everything the pharmacy's public website shows: its own words and photos, branches, and a few products.
+router.get('/:slug/site', loadOrg, wrap(async (req, res) => {
+  const branches = await Branch.find({ org: req.orgId, active: true }).sort('name');
+  const w = req.org.toObject().website || {};
+  const featured = w.showProducts === false ? [] : await Product.find({ org: req.orgId, active: true, legalStatus: { $in: ['otc', 'pharmacy_only'] } }, 'brand strength category imageUrl price')
+    .sort({ imageUrl: -1, brand: 1 }).limit(8);
+  res.json({ name: req.org.name, slug: req.org.slug, dpcRegistration: req.org.dpcRegistration, codEnabled: req.org.settings.codEnabled, website: { ...w, published: w.published !== false }, branches: branches.map(branchPublic), featured });
 }));
 
 router.get('/:slug/products', loadOrg, wrap(async (req, res) => {

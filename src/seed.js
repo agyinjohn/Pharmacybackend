@@ -127,7 +127,19 @@ async function runSeed() {
   await mongoose.connection.dropDatabase();
   console.log('Seeding', config.mongoUri);
 
-  const org = await M.Organization.create({ name: 'MediCare Pharmacies', slug: 'medicare', plan: 'growth', seedVersion: SEED_VERSION, dpcRegistration: 'DPC-2024-004217', settings: { purchasing: 'central' } });
+  const org = await M.Organization.create({ name: 'MediCare Pharmacies', slug: 'medicare', plan: 'growth', seedVersion: SEED_VERSION, dpcRegistration: 'DPC-2024-004217', settings: { purchasing: 'central' },
+    website: {
+      headline: 'Caring for Ghana’s families since 2009',
+      intro: 'Licensed community pharmacies in Accra, Kumasi and Takoradi. Talk to a pharmacist, fill your prescription, or order online for delivery.',
+      about: 'MediCare Pharmacies started as a single shop on Oxford Street, Osu. Today our pharmacists serve thousands of families across three cities, with the same promise: genuine medicines, honest advice and a friendly face behind the counter.\n\nEvery prescription is checked by a registered pharmacist, and we keep our shelves stocked with trusted brands and affordable generics.',
+      services: [
+        { title: 'Prescriptions', text: 'Bring your prescription or upload a photo online. A pharmacist checks it and tells you how to take each medicine.' },
+        { title: 'Free blood pressure checks', text: 'Walk in any day for a quick blood pressure and blood sugar check.' },
+        { title: 'Malaria testing', text: 'Rapid malaria tests with results in 15 minutes and treatment advice.' },
+        { title: 'Delivery', text: 'Order online and we deliver to your home or office, or pick up at your nearest branch.' },
+      ],
+      contact: { phone: '+233 30 222 1001', whatsapp: '+233 24 222 1001', email: 'hello@medicare.example' },
+    } });
   const zones = (a, b, c) => [{ name: 'Within 3 km', fee: a, etaMins: 45 }, { name: '3 - 8 km', fee: b, etaMins: 75 }, { name: 'Outer city', fee: c, etaMins: 120 }];
   const [acc, ksi, tkd] = await M.Branch.create([
     { org: org._id, name: 'Accra Central', code: 'ACC', address: '14 Oxford Street, Osu, Accra', phone: '+233 30 222 1001', email: 'accra@medicare.example', licenseNumber: 'PC/RP/ACC/0412', licenseExpiry: day(300), superintendent: 'Pharm. Ama Mensah', openingHours: 'Mon-Sat 8am-9pm, Sun 10am-6pm', taxId: 'C0012345678', receiptHeader: 'MediCare Pharmacy - Accra Central', location: { lat: 5.556, lng: -0.1969 }, deliveryZones: zones(10, 18, 30) },
