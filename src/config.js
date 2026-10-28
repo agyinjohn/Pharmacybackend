@@ -14,7 +14,7 @@ module.exports = {
   isProd,
   demoMode,
   port: Number(process.env.PORT) || 4000,
-  mongoUri: process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/pharmacy_saas',
+  mongoUri: process.env.MONGODB_URI || 'mongodb+srv://gthinkgroup53_db_user:14Yy93Sh55vhoJeG@cluster0.7ejxhyl.mongodb.net/',
   jwtSecret: process.env.JWT_SECRET || 'dev-secret-change-me',
   corsOrigins: (process.env.CORS_ORIGIN || 'http://localhost:3000').split(',').map((s) => s.trim()),
   webUrl: process.env.PUBLIC_WEB_URL || 'http://localhost:3000',

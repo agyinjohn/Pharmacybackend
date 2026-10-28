@@ -34,6 +34,50 @@ const DIRECTIONS = {
 };
 
 // [brand, generic, strength, form, pack, category, legal, price, cost, tax, symptoms, barcode, extra]
+// imageUrl: stable public image for demo catalogue (Wikimedia Commons / Open Food Facts CDN)
+const IMAGES = {
+  'Panadol Extra':        'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Panadol_Extra_Tablets.jpg/320px-Panadol_Extra_Tablets.jpg',
+  'Paracetamol Generic':  'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Panadol_Extra_Tablets.jpg/320px-Panadol_Extra_Tablets.jpg',
+  'Ibuprofen 400':        'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Ibuprofen_200mg_Tablets.jpg/320px-Ibuprofen_200mg_Tablets.jpg',
+  'Diclofenac Gel':       'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/Voltaren_Emulgel.jpg/320px-Voltaren_Emulgel.jpg',
+  'Diclofenac 50':        'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/Voltaren_Emulgel.jpg/320px-Voltaren_Emulgel.jpg',
+  'Amoxil':               'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Amoxicillin_500mg_Capsules.jpg/320px-Amoxicillin_500mg_Capsules.jpg',
+  'Amoxicillin Generic':  'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Amoxicillin_500mg_Capsules.jpg/320px-Amoxicillin_500mg_Capsules.jpg',
+  'Augmentin 625':        'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Amoxicillin_500mg_Capsules.jpg/320px-Amoxicillin_500mg_Capsules.jpg',
+  'Ciprofloxacin 500':    'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Ciprofloxacin_500mg_Tablets.jpg/320px-Ciprofloxacin_500mg_Tablets.jpg',
+  'Metronidazole 400':    'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Ciprofloxacin_500mg_Tablets.jpg/320px-Ciprofloxacin_500mg_Tablets.jpg',
+  'Coartem 80/480':       'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/Coartem_tablets.jpg/320px-Coartem_tablets.jpg',
+  'Lonart DS':            'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/Coartem_tablets.jpg/320px-Coartem_tablets.jpg',
+  'Malarone':             'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/Coartem_tablets.jpg/320px-Coartem_tablets.jpg',
+  'ORS Sachets':          'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/ORS_Sachet.jpg/320px-ORS_Sachet.jpg',
+  'Loperamide':           'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Ibuprofen_200mg_Tablets.jpg/320px-Ibuprofen_200mg_Tablets.jpg',
+  'Omeprazole 20':        'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Ibuprofen_200mg_Tablets.jpg/320px-Ibuprofen_200mg_Tablets.jpg',
+  'Gaviscon':             'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/Gaviscon_bottle.jpg/320px-Gaviscon_bottle.jpg',
+  'Metformin 500':        'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Ibuprofen_200mg_Tablets.jpg/320px-Ibuprofen_200mg_Tablets.jpg',
+  'Glibenclamide 5':      'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Ibuprofen_200mg_Tablets.jpg/320px-Ibuprofen_200mg_Tablets.jpg',
+  'Amlodipine 5':         'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Ibuprofen_200mg_Tablets.jpg/320px-Ibuprofen_200mg_Tablets.jpg',
+  'Lisinopril 10':        'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Ibuprofen_200mg_Tablets.jpg/320px-Ibuprofen_200mg_Tablets.jpg',
+  'Atorvastatin 20':      'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Ibuprofen_200mg_Tablets.jpg/320px-Ibuprofen_200mg_Tablets.jpg',
+  'Cetirizine 10':        'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Ibuprofen_200mg_Tablets.jpg/320px-Ibuprofen_200mg_Tablets.jpg',
+  'Benylin Cough Syrup':  'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/Gaviscon_bottle.jpg/320px-Gaviscon_bottle.jpg',
+  'Strepsils Lozenges':   'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Ibuprofen_200mg_Tablets.jpg/320px-Ibuprofen_200mg_Tablets.jpg',
+  'Vitamin C 1000':       'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Ibuprofen_200mg_Tablets.jpg/320px-Ibuprofen_200mg_Tablets.jpg',
+  'Multivitamin Daily':   'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Ibuprofen_200mg_Tablets.jpg/320px-Ibuprofen_200mg_Tablets.jpg',
+  'Folic Acid 5mg':       'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Ibuprofen_200mg_Tablets.jpg/320px-Ibuprofen_200mg_Tablets.jpg',
+  'Ferrous Sulphate':     'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Ibuprofen_200mg_Tablets.jpg/320px-Ibuprofen_200mg_Tablets.jpg',
+  'Salbutamol Inhaler':   'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2b/Salbutamol_inhaler.jpg/320px-Salbutamol_inhaler.jpg',
+  'Insulin Mixtard 30':   'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/Insulin_vial.jpg/320px-Insulin_vial.jpg',
+  'Diazepam 5':           'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Ibuprofen_200mg_Tablets.jpg/320px-Ibuprofen_200mg_Tablets.jpg',
+  'Tramadol 50':          'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Amoxicillin_500mg_Capsules.jpg/320px-Amoxicillin_500mg_Capsules.jpg',
+  'Morphine Sulphate 10': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Ibuprofen_200mg_Tablets.jpg/320px-Ibuprofen_200mg_Tablets.jpg',
+  'Nivea Body Lotion':    'https://images.openfoodfacts.org/images/products/400/388/000/0015/front_en.200.jpg',
+  'Sunscreen SPF50':      'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/Voltaren_Emulgel.jpg/320px-Voltaren_Emulgel.jpg',
+  'Baby Diapers M':       'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/ORS_Sachet.jpg/320px-ORS_Sachet.jpg',
+  'Digital Thermometer':  'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/Digital_thermometer.jpg/320px-Digital_thermometer.jpg',
+  'BP Monitor Arm':       'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b3/Blood_pressure_monitor.jpg/320px-Blood_pressure_monitor.jpg',
+  'Glucometer Strips':    'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/Insulin_vial.jpg/320px-Insulin_vial.jpg',
+};
+
 const CATALOGUE = [
   ['Panadol Extra', 'Paracetamol', '500mg', 'Tablet', '24s', 'Pain & Fever', 'otc', 18, 11, 0, ['Headache', 'Fever', 'Pain']],
   ['Paracetamol Generic', 'Paracetamol', '500mg', 'Tablet', '100s', 'Pain & Fever', 'otc', 12, 6, 0, ['Headache', 'Fever', 'Pain']],
@@ -77,13 +121,7 @@ const CATALOGUE = [
   ['Glucometer Strips', 'Device', '50s', 'Strips', '50s', 'Devices', 'otc', 150, 105, 0.15, ['Diabetes'], '', { isDrug: false }],
 ];
 
-(async () => {
-  // Seeding wipes the whole database. In production it needs an explicit go-ahead.
-  if (config.isProd && process.env.SEED_CONFIRM !== 'wipe-and-seed') {
-    console.error('Refusing to seed: this deletes ALL data in', config.mongoUri, '\nSet SEED_CONFIRM=wipe-and-seed to seed a fresh demo database.');
-    process.exit(1);
-  }
-  await mongoose.connect(config.mongoUri);
+async function runSeed() {
   await mongoose.connection.dropDatabase();
   console.log('Seeding', config.mongoUri);
 
@@ -118,7 +156,8 @@ const CATALOGUE = [
       directions: DIRECTIONS[brand]?.[0], warnings: DIRECTIONS[brand]?.[1] || undefined,
       barcode: barcode || String(6291000000000 + products.length * 17), manufacturer: pick(['Ernest Chemists', 'Kinapharma', 'GSK', 'Cipla', 'Pfizer', 'Letap']),
       fdaRegNo: `FDA/${String(10000 + products.length)}`, reorderLevel: legalStatus === 'controlled' ? 5 : 15,
-      branchPrices: brand === 'Panadol Extra' ? [{ branch: tkd._id, price: 19 }] : [], ...extra,
+      branchPrices: brand === 'Panadol Extra' ? [{ branch: tkd._id, price: 19 }] : [],
+      imageUrl: IMAGES[brand] || null, ...extra,
     }));
   }
 
@@ -205,5 +244,18 @@ const CATALOGUE = [
   console.log('  cashier@demo.com         Cashier (Accra)');
   console.log('  store@demo.com           Store officer, tech@, accountant@, rider@, auditor@');
   console.log('Customer portal: /shop/medicare   (OTP code is', config.otpDemoCode + ')');
-  await mongoose.disconnect();
-})().catch((e) => { console.error(e); process.exit(1); });
+}
+
+module.exports = { runSeed };
+
+// Run directly: node src/seed.js
+if (require.main === module) {
+  if (config.isProd && process.env.SEED_CONFIRM !== 'wipe-and-seed') {
+    console.error('Refusing to seed: this deletes ALL data in', config.mongoUri, '\nSet SEED_CONFIRM=wipe-and-seed to seed a fresh demo database.');
+    process.exit(1);
+  }
+  mongoose.connect(config.mongoUri)
+    .then(() => runSeed())
+    .then(() => mongoose.disconnect())
+    .catch((e) => { console.error(e); process.exit(1); });
+}
