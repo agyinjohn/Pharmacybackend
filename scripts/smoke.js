@@ -133,6 +133,19 @@ const login = async (email) => { const d = ok(await call('/auth/login', { body: 
     ok(await call('/reminders?status=ended', { token: pharm.token, branch: acc }));
     ok(await call('/reminders', { token: cashier.token, branch: acc }), 403);
   });
+  await step('owner edits the website and it shows publicly', async () => {
+    const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    const up = ok(await call('/org/website/images', { token: owner.token, body: { image: png } }), 201);
+    if (!/^\/images\/site\/[a-f0-9]{24}$/.test(up.url)) throw new Error(JSON.stringify(up));
+    const img = await fetch(`${API}${up.url}`); if (img.status !== 200 || img.headers.get('content-type') !== 'image/png') throw new Error(`image ${img.status}`);
+    ok(await call('/org/website', { method: 'PATCH', token: owner.token, body: { brandColor: 'red' } }), 400);
+    ok(await call('/org/website', { method: 'PATCH', token: owner.token, body: { logoUrl: 'http://evil.example/x.png' } }), 400);
+    ok(await call('/org/website', { method: 'PATCH', token: cashier.token, body: { headline: 'x' } }), 403);
+    ok(await call('/org/website', { method: 'PATCH', token: owner.token, body: { headline: 'Smoke pharmacy', brandColor: '#1f5c4d', logoUrl: up.url, services: [{ title: 'Checks', text: 'BP' }], social: { facebook: 'https://facebook.com/x' } } }));
+    const site = ok(await call('/portal/medicare/site', {}));
+    if (site.website.headline !== 'Smoke pharmacy' || site.website.logoUrl !== up.url || !site.branches.length) throw new Error(JSON.stringify(site.website));
+    const shop = ok(await call('/portal/medicare', {})); if (shop.website.logoUrl !== up.url) throw new Error('store header has no logo');
+  });
   await step('bad reminder time rejected', async () => { ok(await call('/reminders', { token: pharm.token, branch: acc, body: { customer: kw._id, medicine: 'X', times: ['25:00'] } }), 400); });
   await step('patient pauses own reminder in the portal', async () => {
     ok(await call('/reminders', { token: pharm.token, branch: acc, body: { customer: cust.customer._id, medicine: 'Vitamin C', times: ['08:00'] } }), 201);

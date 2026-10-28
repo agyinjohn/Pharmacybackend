@@ -4,6 +4,7 @@ const { wrap, bad, notFound, escapeRegex, sendRows } = require('../utils/http');
 const { staff, roles, branch, writable } = require('../middleware/auth');
 const { audit } = require('../services/audit');
 const { oid } = require('../services/stock');
+const { parseImage } = require('../services/images');
 
 
 const FIELDS = ['imageUrl', 'brand', 'generic', 'strength', 'form', 'packSize', 'manufacturer', 'barcode', 'category', 'isDrug', 'legalStatus', 'controlClass', 'fdaRegNo', 'price', 'cost', 'taxRate', 'branchPrices', 'reorderLevel', 'branchReorder', 'storage', 'symptoms', 'directions', 'warnings', 'active'];
@@ -56,20 +57,12 @@ router.get('/products/:id/alternatives', branch(false), wrap(async (req, res) =>
   res.json(subs.map((s) => ({ ...s.toObject(), stock: stock.get(String(s._id)) || 0 })));
 }));
 
-// Photo upload: a data URL (the browser resizes it first). JPEG, PNG or WebP, at most 1.5 MB.
-const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+// Photo upload: a data URL, checked by parseImage.
 router.post('/products/:id/image', roles('store_officer', 'branch_manager', 'pharmacist'), writable, wrap(async (req, res) => {
   const p = await Product.findOne({ _id: req.params.id, org: req.orgId });
   if (!p) throw notFound();
-  const m = /^data:(image\/[a-z+]+);base64,(.+)$/.exec(String(req.body.image || ''));
-  if (!m || !IMAGE_TYPES.includes(m[1])) throw bad('Upload a JPEG, PNG or WebP image');
-  const data = Buffer.from(m[2], 'base64');
-  if (data.length > 1.5 * 1024 * 1024) throw bad('Image is too large (max 1.5 MB)');
-  // Check the file really is the type it claims (magic bytes), not just the label.
-  const sig = data.subarray(0, 12);
-  const real = sig[0] === 0xff && sig[1] === 0xd8 ? 'image/jpeg' : sig.subarray(1, 4).toString() === 'PNG' ? 'image/png' : sig.subarray(8, 12).toString() === 'WEBP' ? 'image/webp' : null;
-  if (real !== m[1]) throw bad('That file is not a valid image');
-  await ProductImage.findOneAndUpdate({ product: p._id }, { org: req.orgId, product: p._id, contentType: real, data }, { upsert: true });
+  const { contentType, data } = parseImage(req.body.image);
+  await ProductImage.findOneAndUpdate({ product: p._id }, { org: req.orgId, product: p._id, contentType, data }, { upsert: true });
   p.imageUrl = `/images/products/${p._id}?v=${Date.now().toString(36)}`;
   await p.save();
   await audit(req, 'product.image', 'Product', p._id, `Photo updated for ${p.brand}`);

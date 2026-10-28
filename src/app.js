@@ -5,6 +5,7 @@ const morgan = require('morgan');
 const config = require('./config');
 const { staff } = require('./middleware/auth');
 const errorHandler = require('./middleware/error');
+const { sendImage } = require('./services/images');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -22,8 +23,17 @@ app.get('/api/images/products/:id', async (req, res, next) => {
     if (!/^[a-f0-9]{24}$/.test(req.params.id)) return res.status(404).end();
     const img = await ProductImage.findOne({ product: req.params.id });
     if (!img) return res.status(404).end();
-    res.set({ 'Content-Type': img.contentType, 'Cache-Control': 'public, max-age=31536000, immutable', 'Cross-Origin-Resource-Policy': 'cross-origin', 'X-Content-Type-Options': 'nosniff' });
-    res.end(img.data);
+    sendImage(res, img);
+  } catch (e) { next(e); }
+});
+// Website photos (logo, banner, gallery): each upload has its own id, so the URL never changes content.
+app.get('/api/images/site/:id', async (req, res, next) => {
+  try {
+    const { SiteImage } = require('./models');
+    if (!/^[a-f0-9]{24}$/.test(req.params.id)) return res.status(404).end();
+    const img = await SiteImage.findById(req.params.id);
+    if (!img) return res.status(404).end();
+    sendImage(res, img);
   } catch (e) { next(e); }
 });
 app.use('/api/auth', require('./routes/auth'));

@@ -47,6 +47,18 @@ const Organization = mongoose.model('Organization', new Schema({
     // Where data is hosted and processed (REG-20).
     hosting: { country: { type: String, default: '' }, provider: { type: String, default: '' }, safeguards: { type: String, default: '' } },
   },
+  // The pharmacy's own public website (/site/<slug>), edited by the owner in Settings.
+  website: {
+    published: { type: Boolean, default: true },
+    brandColor: String,               // #rrggbb; empty = PharmaOne green
+    logoUrl: String, heroImageUrl: String, aboutImageUrl: String,
+    headline: String, intro: String, about: String,
+    services: [{ _id: false, title: String, text: String }],
+    gallery: [String],
+    contact: { phone: String, whatsapp: String, email: String },
+    social: { facebook: String, instagram: String, tiktok: String, x: String },
+    showProducts: { type: Boolean, default: true },
+  },
 }, opts));
 
 const Branch = mongoose.model('Branch', new Schema({
@@ -476,6 +488,13 @@ const ReminderLog = mongoose.model('ReminderLog', new Schema({
 }, { timestamps: { createdAt: true, updatedAt: false } }).index({ plan: 1, slot: 1 }, { unique: true }));
 
 // Product photos live apart from products so catalogue lists stay small.
+// Logo, banner and gallery photos for a pharmacy's website. Each upload gets its own id.
+const SiteImage = mongoose.model('SiteImage', new Schema({
+  org: ref('Organization', { required: true, index: true }),
+  contentType: { type: String, required: true },
+  data: { type: Buffer, required: true },
+}, opts));
+
 const ProductImage = mongoose.model('ProductImage', new Schema({
   org: ref('Organization', { required: true }),
   product: ref('Product', { required: true, unique: true }),
@@ -528,5 +547,5 @@ const Lead = mongoose.model('Lead', new Schema({
 module.exports = {
   ROLES, LEGAL,
   Organization, Branch, User, Product, Batch, Supplier, PurchaseOrder, StockTransfer,
-  Customer, Prescription, ControlledRegister, Shift, Sale, Order, AuditLog, Lead, SupplierReturn, Notification, Ledger, ImportLog, ProcessingActivity, SecurityIncident, Promotion, OfflineOp, ReminderPlan, ReminderLog, ProductImage,
+  Customer, Prescription, ControlledRegister, Shift, Sale, Order, AuditLog, Lead, SupplierReturn, Notification, Ledger, ImportLog, ProcessingActivity, SecurityIncident, Promotion, OfflineOp, ReminderPlan, ReminderLog, ProductImage, SiteImage,
 };
