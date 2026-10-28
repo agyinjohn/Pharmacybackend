@@ -121,11 +121,13 @@ const CATALOGUE = [
   ['Glucometer Strips', 'Device', '50s', 'Strips', '50s', 'Devices', 'otc', 150, 105, 0.15, ['Diabetes'], '', { isDrug: false }],
 ];
 
+const SEED_VERSION = 2; // bump to force a re-seed on next deploy
+
 async function runSeed() {
   await mongoose.connection.dropDatabase();
   console.log('Seeding', config.mongoUri);
 
-  const org = await M.Organization.create({ name: 'MediCare Pharmacies', slug: 'medicare', plan: 'growth', dpcRegistration: 'DPC-2024-004217', settings: { purchasing: 'central' } });
+  const org = await M.Organization.create({ name: 'MediCare Pharmacies', slug: 'medicare', plan: 'growth', seedVersion: SEED_VERSION, dpcRegistration: 'DPC-2024-004217', settings: { purchasing: 'central' } });
   const zones = (a, b, c) => [{ name: 'Within 3 km', fee: a, etaMins: 45 }, { name: '3 - 8 km', fee: b, etaMins: 75 }, { name: 'Outer city', fee: c, etaMins: 120 }];
   const [acc, ksi, tkd] = await M.Branch.create([
     { org: org._id, name: 'Accra Central', code: 'ACC', address: '14 Oxford Street, Osu, Accra', phone: '+233 30 222 1001', email: 'accra@medicare.example', licenseNumber: 'PC/RP/ACC/0412', licenseExpiry: day(300), superintendent: 'Pharm. Ama Mensah', openingHours: 'Mon-Sat 8am-9pm, Sun 10am-6pm', taxId: 'C0012345678', receiptHeader: 'MediCare Pharmacy - Accra Central', location: { lat: 5.556, lng: -0.1969 }, deliveryZones: zones(10, 18, 30) },
@@ -317,7 +319,7 @@ async function runSeed() {
   console.log('Customer portal: /shop/medicare   (OTP code is', config.otpDemoCode + ')');
 }
 
-module.exports = { runSeed };
+module.exports = { runSeed, SEED_VERSION };
 
 // Run directly: node src/seed.js
 if (require.main === module) {
