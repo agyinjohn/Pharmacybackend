@@ -3,11 +3,20 @@ const config = require('./config');
 const app = require('./app');
 
 mongoose.connect(config.mongoUri)
-  .then(() => {
+  .then(async () => {
+    // Auto-seed on first deploy: if no org exists and DEMO_MODE is on, seed the demo data.
+    if (config.demoMode) {
+      const { Organization } = require('./models');
+      const exists = await Organization.countDocuments().limit(1);
+      if (!exists) {
+        console.log('Empty database detected — running demo seed...');
+        const { runSeed } = require('./seed');
+        await runSeed();
+      }
+    }
+
     app.listen(config.port, () => console.log(`Pharmacy API listening on :${config.port}`));
-    // Free stock held for online orders that were never paid.
     const { releaseExpiredReservations } = require('./routes/orders');
-    // Medication reminders (dose times and refill-due), checked every minute.
     const { runReminders } = require('./services/reminders');
     setInterval(() => runReminders().catch((e) => console.error('reminder sweep failed', e.message)), 60000).unref();
     setInterval(() => releaseExpiredReservations().catch((e) => console.error('reservation sweep failed', e.message)), 60000).unref();
