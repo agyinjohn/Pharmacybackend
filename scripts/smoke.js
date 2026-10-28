@@ -53,7 +53,7 @@ const login = async (email) => { const d = ok(await call('/auth/login', { body: 
   await step('close shift', async () => ok(await call('/shifts/close', { token: cashier.token, branch: acc, body: { countedCash: 100 } })));
 
   const rxs = await step('list prescriptions', async () => ok(await call('/prescriptions', { token: pharm.token, branch: acc })));
-  const rx1 = rxs?.find((r) => r.rxNo === 'RX-DEMO-001'); const rx2 = rxs?.find((r) => r.rxNo === 'RX-DEMO-002'); const rx3 = rxs?.find((r) => r.rxNo === 'RX-DEMO-003');
+  const rx1 = rxs?.find((r) => r.rxNo === 'RX-DEMO-001'); const rx3 = rxs?.find((r) => r.rxNo === 'RX-DEMO-003');
   const rx4 = rxs?.find((r) => r.rxNo === 'RX-DEMO-004');
   await step('verify refused until directions are entered', async () => { const r = await call(`/prescriptions/${rx4._id}/verify`, { token: pharm.token, branch: acc, body: {} }); ok(r, 409); if (!r.data.needsDirections) throw new Error('expected needsDirections'); });
   await step('pharmacist enters directions', async () => { const r = ok(await call(`/prescriptions/${rx4._id}/directions`, { method: 'PATCH', token: pharm.token, branch: acc, body: { items: [{ product: rx4.items[0].product, dose: '500mg', frequency: 'Twice daily', duration: '5 days' }] } })); if (r.items[0].frequency !== 'Twice daily') throw new Error('directions not saved'); });
@@ -62,6 +62,12 @@ const login = async (email) => { const d = ok(await call('/auth/login', { body: 
   await step('verify raises allergy warning', async () => { const r = await call(`/prescriptions/${rx1._id}/verify`, { token: pharm.token, branch: acc, body: {} }); ok(r, 409); if (!r.data.warnings.some((w) => /ALLERGY/.test(w))) throw new Error('no allergy warning'); });
   await step('override needs reason', async () => { ok(await call(`/prescriptions/${rx1._id}/verify`, { token: pharm.token, branch: acc, body: { override: true } }), 400); });
   await step('override with reason verifies', async () => ok(await call(`/prescriptions/${rx1._id}/verify`, { token: pharm.token, branch: acc, body: { override: true, overrideReason: 'Tolerated before, doctor aware' } })));
+  // Its own prescription (one line, 1 fill + 1 refill) so the dispensing checks don't depend on the demo data.
+  const seedRx2 = rxs?.find((r) => r.rxNo === 'RX-DEMO-002');
+  const rx2 = await step('capture and verify a prescription to dispense', async () => {
+    const r = ok(await call('/prescriptions', { token: pharm.token, branch: acc, body: { customer: seedRx2.customer?._id || seedRx2.customer, patientName: seedRx2.patientName, prescriber: { name: 'Dr. Smoke Test', regNo: 'MDC/00001' }, refillsAllowed: 1, items: [{ product: seedRx2.items[0].product, dose: '500mg', frequency: 'Twice daily', duration: '5 days', qty: 5 }] } }), 201);
+    return ok(await call(`/prescriptions/${r._id}/verify`, { token: pharm.token, branch: acc, body: { override: true, overrideReason: 'Smoke test' } }));
+  });
   await step('dispense verified Rx creates dose reminders', async () => {
     const d = ok(await call(`/prescriptions/${rx2._id}/dispense`, { token: pharm.token, branch: acc, body: {} }));
     if (!d.labels.length) throw new Error('no labels');
@@ -120,6 +126,13 @@ const login = async (email) => { const d = ok(await call('/auth/login', { body: 
   const mo = ok(await call('/customers?q=Mohammed', { token: owner.token }))[0];
   await step('reminder test reaches a consenting patient', async () => { const pl = ok(await call('/reminders', { token: pharm.token, branch: acc, body: { customer: kw._id, medicine: 'Amlodipine 5mg', times: ['21:00', '09:00'], days: 30 } }), 201); if (pl.times.join() !== '09:00,21:00') throw new Error('times not sorted'); const t = ok(await call(`/reminders/${pl._id}/test`, { token: pharm.token, branch: acc, body: {} })); if (t.status !== 'sent' || !/Amlodipine/.test(t.message)) throw new Error(JSON.stringify(t)); });
   await step('no reminder sent without consent', async () => { const plans = ok(await call(`/customers/${mo._id}/reminders`, { token: pharm.token, branch: acc })); const t = ok(await call(`/reminders/${plans[0]._id}/test`, { token: pharm.token, branch: acc, body: {} })); if (t.status !== 'skipped') throw new Error(JSON.stringify(t)); });
+  await step('all reminders list flags patients without SMS consent', async () => {
+    const all = ok(await call('/reminders', { token: pharm.token, branch: acc }));
+    const a = all.find((p) => p.medicine === 'Amlodipine 5mg'); if (!a || a.canSend !== true || a.sentCount !== 0 || a.customer.name !== kw.name) throw new Error(JSON.stringify(a));
+    if (all.some((p) => String(p.customer._id) === String(mo._id) && p.canSend)) throw new Error('no-consent patient marked as sendable');
+    ok(await call('/reminders?status=ended', { token: pharm.token, branch: acc }));
+    ok(await call('/reminders', { token: cashier.token, branch: acc }), 403);
+  });
   await step('bad reminder time rejected', async () => { ok(await call('/reminders', { token: pharm.token, branch: acc, body: { customer: kw._id, medicine: 'X', times: ['25:00'] } }), 400); });
   await step('patient pauses own reminder in the portal', async () => {
     ok(await call('/reminders', { token: pharm.token, branch: acc, body: { customer: cust.customer._id, medicine: 'Vitamin C', times: ['08:00'] } }), 201);

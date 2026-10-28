@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { ReminderPlan, Customer, Prescription, Organization } = require('../models');
+const { ReminderPlan, ReminderLog, Customer, Prescription, Organization } = require('../models');
 const { wrap, bad, notFound } = require('../utils/http');
 const { roles, writable } = require('../middleware/auth');
 const { audit } = require('../services/audit');
@@ -19,8 +19,25 @@ router.get('/customers/:id/reminders', roles(...RX_STAFF), wrap(async (req, res)
   res.json(await ReminderPlan.find({ org: req.orgId, customer: req.params.id }).sort('-createdAt').limit(50));
 }));
 
+// Every patient's reminders in one list. status=active (default): running or paused;
+// status=ended: stopped, or the supply end date has passed.
 router.get('/reminders', roles('pharmacist', 'branch_manager'), wrap(async (req, res) => {
-  res.json(await ReminderPlan.find({ org: req.orgId, active: true }).populate('customer', 'name phone').sort('-createdAt').limit(300));
+  const now = new Date();
+  const f = req.query.status === 'ended'
+    ? { org: req.orgId, $or: [{ active: false }, { endDate: { $lt: now } }] }
+    : { org: req.orgId, active: true, $or: [{ endDate: null }, { endDate: { $gte: now } }] };
+  const plans = await ReminderPlan.find(f).populate('customer', 'name phone consent anonymizedAt').populate('branch', 'name').populate('prescription', 'rxNo')
+    .sort(req.query.status === 'ended' ? '-updatedAt' : '-createdAt').limit(300).lean();
+  // When each plan last texted the patient, and how many doses it has sent.
+  const sent = await ReminderLog.aggregate([
+    { $match: { plan: { $in: plans.map((p) => p._id) }, status: 'sent' } },
+    { $group: { _id: '$plan', count: { $sum: 1 }, last: { $max: '$createdAt' } } },
+  ]);
+  const byPlan = new Map(sent.map((x) => [String(x._id), x]));
+  res.json(plans.filter((p) => p.customer && !p.customer.anonymizedAt).map((p) => {
+    const s = byPlan.get(String(p._id));
+    return { ...p, sentCount: s?.count || 0, lastSentAt: s?.last, canSend: !!p.customer.consent?.communications };
+  }));
 }));
 
 // Pharmacist sets up a reminder by hand (e.g. directions the system could not read).
